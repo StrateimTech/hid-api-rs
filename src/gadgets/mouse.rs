@@ -113,7 +113,7 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: &mut Mouse) {
     }
 }
 
-pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mut RwLock<Vec<Mouse>>) {
+pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mut Vec<Mouse>) {
     loop {
         for mouse_index in 0..mouse_inputs.len() {
             let mouse_path = &mouse_inputs[mouse_index];
@@ -130,25 +130,24 @@ pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mu
                     ..Default::default()
                 };
 
-                if let Ok(mut mouse_interfaces) = mouse_interfaces.try_write() {
-                    mouse_interfaces.push(mouse_interface);
-                    mouse_inputs.remove(mouse_index);
-                }
+                mouse_interfaces.push(mouse_interface);
+                mouse_inputs.remove(mouse_index);
             }
         }
     }
 }
 
+// TODO: This could possible (very low I think) to drop or lose mouse events
 pub fn attempt_flush(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), ()> {
-    if let Ok(mouse_buffer) = mouse.mouse_data_buffer.try_read() {
-        if let Ok(mut mouse_clear_buffer) = mouse.mouse_data_buffer.try_write() {
+    match mouse.mouse_data_buffer.try_read() {
+        Ok(mouse_buffer) => {
             for mouse_raw in mouse_buffer.iter() {
                 hid::write_mouse(mouse_raw, gadget_writer)
             }
-
-            mouse_clear_buffer.clear();
-            return Ok(())
         }
+        Err(_) => return Err(())
     }
-    Err(())
+    mouse.mouse_data_buffer = RwLock::new(Vec::new());
+
+    Ok(())
 }

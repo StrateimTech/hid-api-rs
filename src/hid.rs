@@ -5,7 +5,7 @@ use bitvec::prelude::Lsb0;
 use bitvec::view::BitView;
 use bitvec::field::BitField;
 
-use crate::gadgets::mouse::{MouseRaw, Mouse};
+use crate::gadgets::mouse::MouseRaw;
 
 static mut GADGET_DEVICE_FILE: Option<File> = None;
 
