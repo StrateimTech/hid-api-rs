@@ -7,3 +7,11 @@ edition = "2021"
 
 [dependencies]
 bitvec = "1.0.1"
+
+[lib]
+name = "hid_api_rs"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hid_api_example"
+path = "src/example/bin.rs"

@@ -1,16 +1,16 @@
 use core::panic;
 use std::io::BufWriter;
-use std::sync::RwLock;
-use std::{fs::File, io, path::Path, thread};
+use std::{fs::File, io, thread};
 
 use gadgets::mouse::{self, Mouse};
+use gadgets::keyboard::Keyboard;
 
 pub mod gadgets;
 pub mod hid;
 
 pub struct HidSpecification {
-    pub mouse_inputs: Vec<String>,
-    pub keyboard_inputs: Vec<String>,
+    pub mouse_inputs: Option<Vec<String>>,
+    pub keyboard_inputs: Option<Vec<String>>,
     pub gadget_output: String,
 }
 
@@ -19,7 +19,7 @@ use crate::mouse::MouseRaw;
 static mut GADGET_WRITER: Option<BufWriter<&mut File>> = None;
 
 static mut MOUSE_INTERFACES: Vec<Mouse> = Vec::new();
-// static mut KEYBOARD_INTERFACES: Vec<Test> = Vec::new();
+static mut KEYBOARD_INTERFACES: Vec<Keyboard> = Vec::new();
 
 pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Error> {
     let gadget_file = match hid::open_gadget_device(specification.gadget_output) {
@@ -35,18 +35,18 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
             Some(gadget_writer) => loop {
                 for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
                     let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
-                    mouse::attempt_read(mouse);
+                    if let Err(err) = mouse::attempt_read(mouse) {
+                        println!("failed to reach mouse, ({})", err)
+                    };
 
-                    if let Err(_) = mouse::attempt_flush(mouse, gadget_writer) {
-                        println!("failed to flush mouse")
+                    if let Err(err) = mouse::attempt_flush(mouse, gadget_writer) {
+                        panic!("failed to flush mouse, ({})", err)
                     };
                 }
             },
             None => panic!("No gadget writer wth?!"),
         }
     }
-
-    Ok(())
 }
 
 pub fn stop_passthrough() {
@@ -59,7 +59,7 @@ pub fn stop_passthrough() {
                     mouse::push_mouse_event(MouseRaw::default(), mouse);
 
                     if let Err(_) = mouse::attempt_flush(mouse, gadget_writer) {
-                        panic!("failed to flush mouse (stop passthrough)")
+                        panic!("failed to flush mouse")
                     };
                 }
             }
@@ -68,10 +68,12 @@ pub fn stop_passthrough() {
     }
 }
 
-pub fn start_watcher_threads(mouse_inputs: Vec<String>, mut keyboard_inputs: Vec<String>) {
-    thread::spawn(move || unsafe {
-        mouse::check_mouses(mouse_inputs, &mut MOUSE_INTERFACES);
-    });
+pub fn start_watcher_threads(mouse_inputs: Option<Vec<String>>, mut _keyboard_inputs: Option<Vec<String>>) {
+    if let Some(mouse_inputs) = mouse_inputs {
+        thread::spawn(move || unsafe {
+            mouse::check_mouses(mouse_inputs, &mut MOUSE_INTERFACES);
+        });
+    }
 
     // thread::spawn(move || {
     //     unsafe {
@@ -81,13 +83,14 @@ pub fn start_watcher_threads(mouse_inputs: Vec<String>, mut keyboard_inputs: Vec
     // });
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+pub fn get_mouses() -> &'static mut Vec<Mouse> {
+    unsafe {
+        return &mut MOUSE_INTERFACES
+    }
+}
 
-//     #[test]
-//     fn it_works() {
-//         let result = add(2, 2);
-//         assert_eq!(result, 4);
-//     }
-// }
+pub fn get_keyboards() -> &'static mut Vec<Keyboard> {
+    unsafe {
+        return &mut KEYBOARD_INTERFACES
+    }
+}
