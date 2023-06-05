@@ -8,6 +8,7 @@ use std::{
 use bitvec::prelude::Lsb0;
 use bitvec::view::BitView;
 
+use crate::gadgets::keyboard::KeyboardState;
 use crate::gadgets::mouse::{MouseRaw, Mouse};
 
 static mut GADGET_DEVICE_FILE: Option<File> = None;
@@ -84,7 +85,11 @@ fn as_u8_slice(slice: &[u16]) -> &[u8] {
 }
 
 // TODO: Implement Keyboard
-pub fn write_keyboard() {
+pub fn write_keyboard(keyboard_state: &KeyboardState, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
     const _ID: [u8; 1] = [2 as u8];
+
+    // keyboard_state.keys_down
+    // keyboard_state.modifier
+    
     todo!();
 }
