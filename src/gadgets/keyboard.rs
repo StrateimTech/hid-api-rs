@@ -441,7 +441,7 @@ pub enum KeyState {
     KeyHold,
 }
 
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, EnumString)]
 #[repr(i32)]
 pub enum KeyCodeModifier {
     #[num_enum(default)]
@@ -501,9 +501,9 @@ pub fn attempt_read(
                 let event_type: EventType = EventType::from(key_type);
                 let key_state: KeyState = KeyState::from(key_value);
 
-                let key_modifier = match KeyCodeModifier::try_from(key_value) {
+                let key_modifier = match KeyCodeModifier::from_str(LinuxKeyCode::to_string(&linux_code).as_str()) {
                     Ok(modifier) => Some(modifier),
-                    Err(_) => None,
+                    Err(_) => None
                 };
 
                 if event_type == EventType::EvKey {
