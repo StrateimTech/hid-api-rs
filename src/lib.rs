@@ -85,19 +85,18 @@ pub fn stop_passthrough() {
     }
 }
 
-pub fn start_watcher_threads(mouse_inputs: Option<Vec<String>>, mut _keyboard_inputs: Option<Vec<String>>) {
+pub fn start_watcher_threads(mouse_inputs: Option<Vec<String>>, keyboard_inputs: Option<Vec<String>>) {
     if let Some(mouse_inputs) = mouse_inputs {
         thread::spawn(move || unsafe {
             mouse::check_mouses(mouse_inputs, &mut MOUSE_INTERFACES);
         });
     }
 
-    // thread::spawn(move || {
-    //     unsafe {
-    //         // TODO: Implement keyboard
-    //         // check_keyboards(specification.mouse_inputs, specification.keyboard_inputs);
-    //     }
-    // });
+    if let Some(keyboard_inputs) = keyboard_inputs {
+        thread::spawn(move || unsafe {
+            keyboard::check_keyboards(keyboard_inputs, &mut KEYBOARD_INTERFACES);
+        });
+    }
 }
 
 pub fn get_mouses() -> &'static mut Vec<Mouse> {

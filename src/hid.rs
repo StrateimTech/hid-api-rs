@@ -76,13 +76,6 @@ pub fn write_mouse_scroll_feature(mouse: &mut Mouse) -> Result<(), Error> {
     Ok(())
 }
 
-fn as_u8_slice(slice: &[u16]) -> &[u8] {
-    let len = 2 * slice.len();
-
-    let ptr = slice.as_ptr().cast::<u8>();
-    unsafe { std::slice::from_raw_parts(ptr, len) }
-}
-
 pub fn write_keyboard(
     keyboard_state: &KeyboardState,
     gadget_writer: &mut BufWriter<&mut File>,
@@ -119,4 +112,11 @@ pub fn write_keyboard(
     };
 
     Ok(())
+}
+
+fn as_u8_slice(slice: &[u16]) -> &[u8] {
+    let len = 2 * slice.len();
+
+    let ptr = slice.as_ptr().cast::<u8>();
+    unsafe { std::slice::from_raw_parts(ptr, len) }
 }

@@ -1,5 +1,7 @@
 use num_enum::FromPrimitive;
+use std::fs::OpenOptions;
 use std::io::{BufWriter, Error, ErrorKind, Read};
+use std::path::Path;
 use std::{fs::File, sync::RwLock};
 
 use std::fmt::{self, Debug};
@@ -581,4 +583,25 @@ pub fn remove_key_down(
         ErrorKind::Other,
         String::from("Failed to remove key from global key state!"),
     ))
+}
+
+pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
+    loop {
+        for keyboard_index in 0..keyboard_inputs.len() {
+            let keyboard_path = &keyboard_inputs[keyboard_index];
+            if Path::exists(Path::new(keyboard_path)) {
+                let keyboard = match OpenOptions::new().write(true).read(true).open(keyboard_path) {
+                    Ok(result) => result,
+                    Err(_) => continue,
+                };
+
+                let keyboard_interface = Keyboard {
+                    keyboard_device_file: Some(keyboard),
+                };
+
+                keyboard_interfaces.push(keyboard_interface);
+                keyboard_inputs.remove(keyboard_index);
+            }
+        }
+    }
 }
