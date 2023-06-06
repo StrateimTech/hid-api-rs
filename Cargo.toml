@@ -9,6 +9,10 @@ edition = "2021"
 bitvec = "1.0.1"
 once_cell = "1.17.1"
 
+num_enum = "0.6.1"
+strum = "0.24"
+strum_macros = "0.24"
+
 [lib]
 name = "hid_api_rs"
 path = "src/lib.rs"
