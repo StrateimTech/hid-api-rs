@@ -51,11 +51,11 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
                 for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
                     let keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
                     if let Err(err) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
-                        println!("failed to reach mouse, ({})", err)
+                        println!("failed to reach keyboard, ({})", err)
                     };
 
                     if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, gadget_writer) {
-                        panic!("failed to flush mouse, ({})", err)
+                        panic!("failed to flush keyboard, ({})", err)
                     };
                 }
 

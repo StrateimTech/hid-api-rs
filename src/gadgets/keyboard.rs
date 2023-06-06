@@ -441,7 +441,7 @@ pub enum KeyState {
     KeyHold,
 }
 
-#[derive(FromPrimitive, EnumString)]
+#[derive(FromPrimitive, EnumString, Clone, Copy)]
 #[repr(i32)]
 pub enum KeyCodeModifier {
     #[num_enum(default)]
