@@ -106,8 +106,8 @@ pub fn get_mouses() -> &'static mut Vec<Mouse> {
     }
 }
 
-pub fn get_keyboards() -> &'static mut Vec<Keyboard> {
+pub fn get_keyboard() -> &'static mut KeyboardState {
     unsafe {
-        return &mut KEYBOARD_INTERFACES
+        return &mut GLOBAL_KEYBOARD_STATE
     }
 }
