@@ -275,7 +275,7 @@ impl fmt::Display for LinuxKeyCode {
     }
 }
 
-#[derive(FromPrimitive, Clone, Copy, EnumString)]
+#[derive(FromPrimitive, Clone, Copy, EnumString, Debug)]
 #[repr(i16)]
 pub enum UsbKeyCode {
     #[num_enum(default)]
@@ -416,6 +416,12 @@ pub enum UsbKeyCode {
     KEYVOLUMEDOWN = 0x81,
 }
 
+impl fmt::Display for UsbKeyCode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(PartialEq, FromPrimitive)]
 #[repr(i16)]
 pub enum EventType {
@@ -443,7 +449,7 @@ pub enum KeyState {
     KeyHold,
 }
 
-#[derive(FromPrimitive, EnumString, Clone, Copy)]
+#[derive(FromPrimitive, EnumString, Clone, Copy, Debug)]
 #[repr(i32)]
 pub enum KeyCodeModifier {
     #[num_enum(default)]
@@ -455,6 +461,12 @@ pub enum KeyCodeModifier {
     KEYRIGHTSHIFT = 0x20,
     KEYRIGHTALT = 0x40,
     KEYRIGHTMETA = 0x80,
+}
+
+impl fmt::Display for KeyCodeModifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl Default for KeyboardState {
@@ -518,6 +530,7 @@ pub fn attempt_read(
                                     }
                                 }
                                 None => {
+                                    // Will only add 1 instance of key
                                     return add_key_down(usb_code, global_keyboard_state);
                                 }
                             }
@@ -551,8 +564,14 @@ pub fn add_key_down(
     key: UsbKeyCode,
     global_keyboard_state: &'static mut KeyboardState,
 ) -> Result<(), Error> {
-    if let Ok(mut keyboard_state) = global_keyboard_state.keys_down.write() {
-        keyboard_state.push(key as i32);
+    if let Ok(keyboard_state_read) = global_keyboard_state.keys_down.read() {
+        if keyboard_state_read.contains(&(key as i32)) {
+            return Ok(());
+        }
+    }
+    
+    if let Ok(mut keyboard_state_write) = global_keyboard_state.keys_down.write() {
+        keyboard_state_write.push(key as i32);
 
         return Ok(());
     }
@@ -563,7 +582,8 @@ pub fn add_key_down(
     ))
 }
 
-// TODO: This will remove all instances of a key
+// OLD "This will remove all instances of a key"
+// Hopefully this never has to deal with duplicates of keys!
 pub fn remove_key_down(
     key: UsbKeyCode,
     global_keyboard_state: &'static mut KeyboardState,
@@ -604,4 +624,15 @@ pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'
             }
         }
     }
+}
+
+pub fn is_key_down(
+    key: UsbKeyCode,
+    global_keyboard_state: &'static mut KeyboardState,
+) -> bool {
+    if let Ok(keyboard_state) = global_keyboard_state.keys_down.read() {
+        return keyboard_state.contains(&(key as i32))
+    }
+    
+    false
 }
