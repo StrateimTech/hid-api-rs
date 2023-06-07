@@ -20,6 +20,15 @@ pub struct KeyboardState {
     pub modifier: RwLock<Option<KeyCodeModifier>>,
 }
 
+impl Default for KeyboardState {
+    fn default() -> Self {
+        KeyboardState {
+            keys_down: RwLock::new(Vec::new()),
+            modifier: RwLock::new(None),
+        }
+    }
+}
+
 #[derive(FromPrimitive, Debug, Clone, Copy)]
 #[repr(i16)]
 pub enum LinuxKeyCode {
@@ -422,7 +431,7 @@ impl fmt::Display for UsbKeyCode {
     }
 }
 
-#[derive(PartialEq, FromPrimitive)]
+#[derive(PartialEq, FromPrimitive, Debug)]
 #[repr(i16)]
 pub enum EventType {
     #[num_enum(default)]
@@ -440,7 +449,7 @@ pub enum EventType {
     EvFfStatus,
 }
 
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug)]
 #[repr(i32)]
 pub enum KeyState {
     KeyUp,
@@ -469,20 +478,11 @@ impl fmt::Display for KeyCodeModifier {
     }
 }
 
-impl Default for KeyboardState {
-    fn default() -> Self {
-        KeyboardState {
-            keys_down: RwLock::new(Vec::new()),
-            modifier: RwLock::new(None),
-        }
-    }
-}
-
 pub fn attempt_read(
     keyboard: &mut Keyboard,
     global_keyboard_state: &'static mut KeyboardState,
 ) -> Result<(), Error> {
-    const BUFFER_LENGTH: usize = 24;
+    const BUFFER_LENGTH: usize = 16;
 
     match keyboard.keyboard_device_file {
         Some(ref mut keyboard_file) => {
@@ -494,22 +494,19 @@ pub fn attempt_read(
             };
 
             if keyboard_read_length >= BUFFER_LENGTH {
-                let key_type = i16::from_ne_bytes([keyboard_buffer[9], keyboard_buffer[10]]);
-                let key_code = i16::from_ne_bytes([keyboard_buffer[11], keyboard_buffer[12]]);
+                let key_type = i16::from_ne_bytes([keyboard_buffer[8], keyboard_buffer[9]]);
+                let key_code = i16::from_ne_bytes([keyboard_buffer[10], keyboard_buffer[11]]);
                 let key_value = i32::from_ne_bytes([
+                    keyboard_buffer[12],
                     keyboard_buffer[13],
                     keyboard_buffer[14],
                     keyboard_buffer[15],
-                    keyboard_buffer[16],
                 ]);
 
                 let linux_code: LinuxKeyCode = LinuxKeyCode::from(key_code);
                 let usb_code = match UsbKeyCode::from_str(LinuxKeyCode::to_string(&linux_code).as_str()) {
-                    Ok(code) => code,
-                    Err(_) => return Err(Error::new(
-                        ErrorKind::Other,
-                        String::from("Failed to parge & find UsbKeyCode from LinuxKeyCode String!"),
-                    ))
+                    Ok(code) => Some(code),
+                    Err(_) => None
                 };
 
                 let event_type: EventType = EventType::from(key_type);
@@ -530,13 +527,22 @@ pub fn attempt_read(
                                     }
                                 }
                                 None => {
-                                    // Will only add 1 instance of key
-                                    return add_key_down(usb_code, global_keyboard_state);
+                                    if let Some(code) = usb_code {
+                                        return add_key_down(code, global_keyboard_state);
+                                    }
                                 }
                             }
                         }
                         KeyState::KeyUp => {
-                            return remove_key_down(usb_code, global_keyboard_state);
+                            if key_modifier.is_some() {
+                                if let Ok(mut keyboard_state_modifier) = global_keyboard_state.modifier.try_write() {
+                                    *keyboard_state_modifier = None;
+                                }
+                            }
+
+                            if let Some(code) = usb_code {
+                                return remove_key_down(code, global_keyboard_state);
+                            }
                         }
                     }
                 }
@@ -550,7 +556,7 @@ pub fn attempt_read(
         }
     }
 
-    todo!()
+    Ok(())
 }
 
 pub fn attempt_flush(
@@ -582,20 +588,12 @@ pub fn add_key_down(
     ))
 }
 
-// OLD "This will remove all instances of a key"
-// Hopefully this never has to deal with duplicates of keys!
 pub fn remove_key_down(
     key: UsbKeyCode,
     global_keyboard_state: &'static mut KeyboardState,
 ) -> Result<(), Error> {
     if let Ok(mut keyboard_state) = global_keyboard_state.keys_down.write() {
-        for key_position in 0..keyboard_state.len() {
-            let key_state = &keyboard_state[key_position];
-            if key_state == &(key as i32) {
-                keyboard_state.remove(key_position);
-            }
-        }
-
+        keyboard_state.retain(|k| *k != (key as i32));
         return Ok(());
     }
 
@@ -607,8 +605,9 @@ pub fn remove_key_down(
 
 pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
     loop {
-        for keyboard_index in 0..keyboard_inputs.len() {
+        for keyboard_index in 0..keyboard_inputs.len()-1 {
             let keyboard_path = &keyboard_inputs[keyboard_index];
+
             if Path::exists(Path::new(keyboard_path)) {
                 let keyboard = match OpenOptions::new().write(true).read(true).open(keyboard_path) {
                     Ok(result) => result,
@@ -630,9 +629,9 @@ pub fn is_key_down(
     key: UsbKeyCode,
     global_keyboard_state: &'static mut KeyboardState,
 ) -> bool {
-    if let Ok(keyboard_state) = global_keyboard_state.keys_down.read() {
+    if let Ok(keyboard_state) = global_keyboard_state.keys_down.try_read() {
         return keyboard_state.contains(&(key as i32))
     }
-    
+
     false
 }
