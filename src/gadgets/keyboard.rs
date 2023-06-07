@@ -17,14 +17,14 @@ pub struct Keyboard {
 
 pub struct KeyboardState {
     pub keys_down: RwLock<Vec<i32>>,
-    pub modifier: RwLock<Option<KeyCodeModifier>>,
+    pub modifiers_down: RwLock<Vec<i32>>
 }
 
 impl Default for KeyboardState {
     fn default() -> Self {
         KeyboardState {
             keys_down: RwLock::new(Vec::new()),
-            modifier: RwLock::new(None),
+            modifiers_down: RwLock::new(Vec::new())
         }
     }
 }
@@ -250,6 +250,20 @@ pub enum LinuxKeyCode {
     KEYCANCEL = 223,
     KEYBRIGHTNESSDOWN = 224,
     KEYBRIGHTNESSUP = 225,
+
+    // F1 = KEYBRIGHTNESSDOWN
+    // F2 = KEYBRIGHTNESSUP
+    // F3 = 3
+    // F4 = 4
+    // F5 = KEYKBDILLUMDOWN
+    // F6 = KEYKBDILLUMUP
+    // F7 = KEYPREVIOUSSONG
+    // F8 = KEYPLAYPAUSE
+    // F9 = KEYNEXTSONG
+    // F10 = KEYMUTE
+    // F11 = KEYVOLUMEDOWN
+    // F12 = KEYVOLUMEUP
+
     KEYMEDIA = 226,
 
     KEYSWITCHVIDEOMODE = 227,
@@ -462,14 +476,14 @@ pub enum KeyState {
 #[repr(i32)]
 pub enum KeyCodeModifier {
     #[num_enum(default)]
-    KEYLEFTCTRL = 0x01,
-    KEYLEFTSHIFT = 0x02,
-    KEYLEFTALT = 0x04,
-    KEYLEFTMETA = 0x08,
-    KEYRIGHTCTRL = 0x10,
-    KEYRIGHTSHIFT = 0x20,
-    KEYRIGHTALT = 0x40,
-    KEYRIGHTMETA = 0x80,
+    KEYLEFTCTRL = 0,
+    KEYLEFTSHIFT = 1,
+    KEYLEFTALT = 2,
+    KEYLEFTMETA = 3,
+    KEYRIGHTCTRL = 4,
+    KEYRIGHTSHIFT = 5,
+    KEYRIGHTALT = 6,
+    KEYRIGHTMET = 7
 }
 
 impl fmt::Display for KeyCodeModifier {
@@ -493,6 +507,7 @@ pub fn attempt_read(
                 Err(err) => return Err(err),
             };
 
+            println!("Buffer length: {}", keyboard_read_length);
             if keyboard_read_length >= BUFFER_LENGTH {
                 let key_type = i16::from_ne_bytes([keyboard_buffer[8], keyboard_buffer[9]]);
                 let key_code = i16::from_ne_bytes([keyboard_buffer[10], keyboard_buffer[11]]);
@@ -518,30 +533,47 @@ pub fn attempt_read(
                 };
 
                 if event_type == EventType::EvKey {
+                    match usb_code {
+                        Some(code) => {
+                            println!("UsbCode: {:#?}", code.to_string());
+                        },
+                        None => {
+                            match key_modifier {
+                                Some(modifier) => {
+                                    println!("KeyModifier: {:#?}", modifier.to_string());
+                                },
+                                None => {
+                                    println!("Failed to find KeyCodeModifier or Usbcode! (ID: {:#?})", linux_code);
+                                }
+                            }
+                        }
+                    }
+                    println!("EventType: {:#?}", event_type);
+                    println!("Keystate: {:#?}", key_state);
+
                     match key_state {
                         KeyState::KeyDown | KeyState::KeyHold => {
                             match key_modifier {
                                 Some(modifier) => {
-                                    if let Ok(mut keyboard_state_modifier) = global_keyboard_state.modifier.try_write() {
-                                        *keyboard_state_modifier = Some(modifier);
-                                    }
+                                    return add_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
                                 }
                                 None => {
                                     if let Some(code) = usb_code {
-                                        return add_key_down(code, global_keyboard_state);
+                                        return add_generic_down(code as i32, &global_keyboard_state.keys_down);
                                     }
                                 }
                             }
                         }
                         KeyState::KeyUp => {
-                            if key_modifier.is_some() {
-                                if let Ok(mut keyboard_state_modifier) = global_keyboard_state.modifier.try_write() {
-                                    *keyboard_state_modifier = None;
+                            match key_modifier {
+                                Some(modifier) => {
+                                    return remove_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
+                                },
+                                None => {
+                                    if let Some(code) = usb_code {
+                                        return remove_generic_down(code as i32, &global_keyboard_state.keys_down);
+                                    }
                                 }
-                            }
-
-                            if let Some(code) = usb_code {
-                                return remove_key_down(code, global_keyboard_state);
                             }
                         }
                     }
@@ -566,40 +598,34 @@ pub fn attempt_flush(
     hid::write_keyboard(&global_keyboard_state, gadget_writer)
 }
 
-pub fn add_key_down(
-    key: UsbKeyCode,
-    global_keyboard_state: &'static mut KeyboardState,
-) -> Result<(), Error> {
-    if let Ok(keyboard_state_read) = global_keyboard_state.keys_down.read() {
-        if keyboard_state_read.contains(&(key as i32)) {
+pub fn add_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), Error> {
+    if let Ok(generic_keyvec) = key_vec.read() {
+        if generic_keyvec.contains(&(key as i32)) {
             return Ok(());
         }
     }
-    
-    if let Ok(mut keyboard_state_write) = global_keyboard_state.keys_down.write() {
-        keyboard_state_write.push(key as i32);
+
+    if let Ok(mut generic_keyvec_writer) = key_vec.write() {
+        generic_keyvec_writer.push(key as i32);
 
         return Ok(());
     }
 
     Err(Error::new(
         ErrorKind::Other,
-        String::from("Failed to add key down to global key state!"),
+        String::from("Failed to push key to generic keyvec (Modifier / Key)"),
     ))
 }
 
-pub fn remove_key_down(
-    key: UsbKeyCode,
-    global_keyboard_state: &'static mut KeyboardState,
-) -> Result<(), Error> {
-    if let Ok(mut keyboard_state) = global_keyboard_state.keys_down.write() {
-        keyboard_state.retain(|k| *k != (key as i32));
+pub fn remove_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), Error> {
+    if let Ok(mut key_vec) = key_vec.write() {
+        key_vec.retain(|k| *k != (key as i32));
         return Ok(());
     }
 
     Err(Error::new(
         ErrorKind::Other,
-        String::from("Failed to remove key from global key state!"),
+        String::from("Failed to remove key from generic keyvec (Modifier / Key)"),
     ))
 }
 
@@ -607,8 +633,8 @@ pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'
     loop {
         for keyboard_index in 0..keyboard_inputs.len()-1 {
             let keyboard_path = &keyboard_inputs[keyboard_index];
-
             if Path::exists(Path::new(keyboard_path)) {
+                println!("Found new keyboard adding to pool, ({})", keyboard_path);
                 let keyboard = match OpenOptions::new().write(true).read(true).open(keyboard_path) {
                     Ok(result) => result,
                     Err(_) => continue,

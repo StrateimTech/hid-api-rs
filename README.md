@@ -2,6 +2,8 @@
 [HID-API](https://github.com/StrateimTech/HID-API/) library rewritten in Rust 1.69.0
 "Super simple library for handling input/output of multiple keyboard/mouse devices through HID protocol and GadgetFS. Allowing spoofed passthrough and spoofed data to be sent to another computer." - HID-API.
 
+The difference between this and the C# version of this library is that this one is implemented better (eg, modifier bitfield is reported correctly & multiple keyboards can function simultaneously.)
+
 ## If you do not know how to set this up
 * Follow this guide to implement a [configfs gadget by Tobi](https://www.isticktoit.net/?p=1383), replace the **HERE** with the custom report descriptor in "echo -ne **HERE** > functions/hid.usb0".
 * Make sure the slave is connected to the master host pc (Should show up as a single device with both keyboard & mouse protocols), (If you're using a Raspberry Pi 4 Model B use a USBC-USBA Adapter or USBC cable).
