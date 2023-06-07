@@ -40,7 +40,8 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
                 for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
                     let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
                     if let Err(err) = mouse::attempt_read(mouse) {
-                        println!("failed to reach mouse, ({})", err)
+                        println!("failed to reach mouse, ({}). Removing from interface list!", err);
+                        MOUSE_INTERFACES.remove(mouse_interface_index);
                     };
 
                     if let Err(err) = mouse::attempt_flush(mouse, gadget_writer) {
@@ -51,7 +52,8 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
                 for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
                     let keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
                     if let Err(err) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
-                        println!("failed to reach keyboard, ({})", err)
+                        println!("failed to read keyboard, ({}). Removing from interface list!", err);
+                        KEYBOARD_INTERFACES.remove(keyboard_interface_index);
                     };
 
                     if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, gadget_writer) {
@@ -79,6 +81,11 @@ pub fn stop_passthrough() {
                         panic!("failed to flush mouse")
                     };
                 }
+
+                static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
+                if let Err(err) = keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, gadget_writer) {
+                    panic!("failed to flush keyboard, ({})", err)
+                };
             }
             None => panic!("Failed to find gadget file while stopping"),
         }
