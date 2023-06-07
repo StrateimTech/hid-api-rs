@@ -2,6 +2,8 @@ use core::panic;
 use std::io::BufWriter;
 use std::{fs::File, io, thread};
 
+use std::sync::RwLock;
+
 use gadgets::mouse::{self, Mouse};
 use gadgets::keyboard::{self, Keyboard, KeyboardState};
 
@@ -18,7 +20,7 @@ use once_cell::sync::Lazy;
 
 use crate::mouse::MouseRaw;
 
-static mut GADGET_WRITER: Option<BufWriter<&mut File>> = None;
+static mut GADGET_WRITER: Option<RwLock<BufWriter<&mut File>>> = None;
 
 static mut MOUSE_INTERFACES: Vec<Mouse> = Vec::new();
 static mut KEYBOARD_INTERFACES: Vec<Keyboard> = Vec::new();
@@ -34,58 +36,79 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
     start_watcher_threads(specification.mouse_inputs, specification.keyboard_inputs);
 
     unsafe {
-        GADGET_WRITER = Some(BufWriter::new(gadget_file));
+        GADGET_WRITER = Some(RwLock::new(BufWriter::new(gadget_file)));
+        thread::spawn(|| {
+            match &mut GADGET_WRITER {
+                Some(gadget_writer) => loop {
+                    for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
+                        let mut mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
+                        thread::scope(|scope| {
+                            let scoped_mouse = &mut mouse;
+                            scope.spawn(move || {
+                                if let Err(err) = mouse::attempt_read(*scoped_mouse) {
+                                    println!("Failed to reach mouse, ({}). Removing from interface list!", err);
+                                    MOUSE_INTERFACES.remove(mouse_interface_index);
+                                };
+                            });
+                        });
+
+                        if let Ok(mut writer) = gadget_writer.try_write() {
+                            if let Err(err) = mouse::attempt_flush(&mut mouse, &mut writer) {
+                                panic!("Failed to flush mouse, ({})", err)
+                            };
+                        }    
+                    }
+                },
+                None => panic!("No gadget writer.")
+            }
+        });
+
         match &mut GADGET_WRITER {
             Some(gadget_writer) => loop {
-                for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
-                    let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
-                    if let Err(err) = mouse::attempt_read(mouse) {
-                        println!("failed to reach mouse, ({}). Removing from interface list!", err);
-                        MOUSE_INTERFACES.remove(mouse_interface_index);
-                    };
-
-                    if let Err(err) = mouse::attempt_flush(mouse, gadget_writer) {
-                        panic!("failed to flush mouse, ({})", err)
-                    };
-                }
-
                 for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
-                    let keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
-                    if let Err(err) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
-                        println!("failed to read keyboard, ({}). Removing from interface list!", err);
-                        KEYBOARD_INTERFACES.remove(keyboard_interface_index);
-                    };
-
-                    if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, gadget_writer) {
-                        panic!("failed to flush keyboard, ({})", err)
-                    };
+                    let mut keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
+                    
+                    thread::scope(|scope| {
+                        let scoped_keyboard = &mut keyboard;
+                        scope.spawn(move || {
+                            if let Err(err) = keyboard::attempt_read(*scoped_keyboard, &mut GLOBAL_KEYBOARD_STATE) {
+                                println!("Failed to read keyboard, ({}). Removing from interface list!", err);
+                                KEYBOARD_INTERFACES.remove(keyboard_interface_index);
+                            };
+                        });
+                    });
                 }
 
-                
+                if let Ok(mut writer) = gadget_writer.try_write() {
+                    if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut writer) {
+                        panic!("Failed to flush keyboard, ({})", err)
+                    };
+                }
             },
-            None => panic!("No gadget writer wth?!"),
+            None => panic!("No gadget writer.")
         }
     }
 }
 
 pub fn stop_passthrough() {
-    // TODO: Clear all Mouse and Keyboard buffers to zero
     unsafe {
         match &mut GADGET_WRITER {
             Some(gadget_writer) => {
-                for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
-                    let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
-                    mouse::push_mouse_event(MouseRaw::default(), mouse);
-
-                    if let Err(_) = mouse::attempt_flush(mouse, gadget_writer) {
-                        panic!("failed to flush mouse")
+                if let Ok(mut writer) = gadget_writer.write() {
+                    for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
+                        let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
+                        mouse::push_mouse_event(MouseRaw::default(), mouse);
+    
+                        if let Err(_) = mouse::attempt_flush(mouse, &mut writer) {
+                            panic!("failed to flush mouse")
+                        };
+                    }
+    
+                    static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
+                    if let Err(err) = keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut writer) {
+                        panic!("failed to flush keyboard, ({})", err)
                     };
                 }
-
-                static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
-                if let Err(err) = keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, gadget_writer) {
-                    panic!("failed to flush keyboard, ({})", err)
-                };
             }
             None => panic!("Failed to find gadget file while stopping"),
         }
