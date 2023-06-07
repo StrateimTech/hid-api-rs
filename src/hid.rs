@@ -9,7 +9,7 @@ use std::{
 use bitvec::prelude::Lsb0;
 use bitvec::view::BitView;
 
-use crate::gadgets::keyboard::{KeyCodeModifier, KeyboardState};
+use crate::gadgets::keyboard::KeyboardState;
 use crate::gadgets::mouse::{Mouse, MouseRaw};
 
 static mut GADGET_DEVICE_FILE: Option<File> = None;
@@ -82,24 +82,27 @@ pub fn write_keyboard(
 ) -> Result<(), Error> {
     const ID: u8 = 2;
 
-    let mut modifier: Option<KeyCodeModifier> = None;
-    if let Ok(modifier_rwl) = keyboard_state.modifier.try_read() {
-        modifier = modifier_rwl.deref().clone();
+    let mut modifiers_down: Vec<i32> = Vec::new();
+    if let Ok(modifiers_down_rwl) = keyboard_state.modifiers_down.read() {
+        modifiers_down = modifiers_down_rwl.deref().clone();
+    }
+
+    let mut modifier = 0u8;
+    let bits = modifier.view_bits_mut::<Lsb0>();
+    for modifier in &modifiers_down {
+        bits.set(modifier.clone() as usize, true);
     }
 
     let mut keys_down: Vec<i32> = Vec::new();
-    if let Ok(keys_down_rwl) = keyboard_state.keys_down.try_read() {
+    if let Ok(keys_down_rwl) = keyboard_state.keys_down.read() {
         keys_down = keys_down_rwl.deref().clone();
     }
 
-    let mut formatted_event: Vec<u8> = Vec::new();
-    formatted_event.push(ID);
+    let mut formatted_event: Vec<u8> = vec![ID];
 
-    match modifier {
-        Some(ref md) => {
-            formatted_event.push(*md as u8)
-        },
-        None => formatted_event.push(0)
+    match modifiers_down.is_empty() {
+        true => formatted_event.push(0),
+        false => formatted_event.push(modifier)
     }
     formatted_event.push(0);
 
