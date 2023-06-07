@@ -80,7 +80,7 @@ pub fn write_keyboard(
     keyboard_state: &KeyboardState,
     gadget_writer: &mut BufWriter<&mut File>,
 ) -> Result<(), Error> {
-    const ID: [u16; 1] = [2 as u16];
+    const ID: u8 = 2;
 
     let mut modifier: Option<KeyCodeModifier> = None;
     if let Ok(modifier_rwl) = keyboard_state.modifier.try_read() {
@@ -92,15 +92,24 @@ pub fn write_keyboard(
         keys_down = keys_down_rwl.deref().clone();
     }
 
-    let mut formatted_event: Vec<u8> = [as_u8_slice(&ID)].concat();
+    let mut formatted_event: Vec<u8> = Vec::new();
+    formatted_event.push(ID);
 
-    if let Some(ref md) = modifier {
-        formatted_event.push(*md as u8)
+    match modifier {
+        Some(ref md) => {
+            formatted_event.push(*md as u8)
+        },
+        None => formatted_event.push(0)
     }
+    formatted_event.push(0);
 
-    for key_down_index in 0..keys_down.len().min(6) {
-        let key_down = keys_down[key_down_index];
-        formatted_event.push(key_down as u8);
+    for key_down_index in 1..7 {
+        if key_down_index - 1 < keys_down.len() {
+            let key_down: i32 = keys_down[key_down_index - 1];
+            formatted_event.push(key_down as u8);
+        } else {
+            formatted_event.push(0);
+        }
     }
 
     if let Err(err) = gadget_writer.write(&formatted_event) {
