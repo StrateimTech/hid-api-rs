@@ -1,18 +1,20 @@
 # hid-api-rs
-[HID-API](https://github.com/StrateimTech/HID-API/) library rewritten in Rust 1.69.0
-"Super simple library for handling input/output of multiple keyboard/mouse devices through HID protocol and GadgetFS. Allowing spoofed passthrough and spoofed data to be sent to another computer." - HID-API.
+This is a rewritten version of [HID-API's](https://github.com/StrateimTech/HID-API/) C# implementation, now in Rust!
 
-The difference between this and the C# version of this library is that this one is implemented better (eg, modifier bitfield is reported correctly & multiple keyboards can function simultaneously.)
+Want to create cheats without calling system-level APIs for keystrokes and mouse inputs? This library makes it easy by converging your keyboards and mice directly into a microcomputer (Raspberry Pi), which is then routed into any other computer effectively passing through. This allows for independent external calls from the main computer, bypassing kernel-level anti-cheats. It's also capable of injecting keystrokes and mouse movements.
 
-## If you do not know how to set this up
-* Follow this guide to implement a [configfs gadget by Tobi](https://www.isticktoit.net/?p=1383), replace the **HERE** with the custom report descriptor in "echo -ne **HERE** > functions/hid.usb0".
-* Make sure the slave is connected to the master host pc (Should show up as a single device with both keyboard & mouse protocols), (If you're using a Raspberry Pi 4 Model B use a USBC-USBA Adapter or USBC cable).
-* Connect a mouse or keyboard (spare if you have one initially, makes it easier) to the slave.
-* Find where your mouse is in `/dev/input/` (it should be `/dev/input/mice/`) (**Skip if you didn't plug a mouse in!**)
-* If your using keyboard it will be different it should show up in `/dev/input/by-id/` named `...-event-kbd` (**Skip if you didn't plug a keyboard in!**)
-* Now you need to find your gadget device path, it should be `/dev/hidg0` if not attempt to brute force `hidg0-..x`. (**Important / Required to function**)
-* Once you've found the paths plug them into the library
-* It should work and passthrough your inputs from the slave to the master pc!
+This implementation is an improvement compared to the C# version as the modifier bit field is reported correctly and multiple keyboards can function simultaneously.
+
+## Setting Up
+If you're unfamiliar with the process of setting this up, follow these steps:
+
+1. Implement the [configfs gadget by Tobi](https://www.isticktoit.net/?p=1383) and replace "HERE" with the custom report descriptor in "echo -ne **HERE** > functions/hid.usb0".
+2. Ensure that the slave is connected to the master host PC (this should show up as a single device with both keyboard and mouse protocols). If you're using a Raspberry Pi 4 Model B, use a USBC-USBA Adapter or USBC cable.
+3. Connect a mouse or keyboard (spare if you have one initially to make it easier) to the slave.
+4. Find where your mouse is in `/dev/input/` (it should be `/dev/input/mice/`). Skip this step if you didn't plug a mouse in.
+5. If you're using a keyboard, it will differ and should show up in `/dev/input/by-id/` named `...-event-kbd`. Skip this step if you didn't plug a keyboard in.
+6. Now, find your gadget device path. It should be `/dev/hidg0` if not, attempt to brute force `hidg0-..x`. This part is important and is required to function.
+7. Once you've found the paths, plug them into the library, and it should work and passthrough your inputs from the slave to the master PC!
 
 ## Building Example for Pi
 ```
