@@ -14,6 +14,14 @@ The difference between this and the C# version of this library is that this one 
 * Once you've found the paths plug them into the library
 * It should work and passthrough your inputs from the slave to the master pc!
 
+## Building Example for Pi
+```
+git clone https://github.com/StrateimTech/hid-api-rs
+cd ./hid-api-rs
+cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
+```
+Once built transfer to pi & run, make sure to use elevated permissions since its accessing /dev/ directory.
+
 
 # Report descriptor for configfs permanent gadget (Useable with library)
 ## English (Parsed by https://eleccelerator.com/usbdescreqparser)
