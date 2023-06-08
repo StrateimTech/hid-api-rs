@@ -16,7 +16,7 @@ If you're unfamiliar with the process of setting this up, follow these steps:
 6. Now, find your gadget device path. It should be `/dev/hidg0` if not, attempt to brute force `hidg0-..x`. This part is important and is required to function.
 7. Once you've found the paths, plug them into the library, and it should work and passthrough your inputs from the slave to the master PC!
 
-## Building Example for Pi
+## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs) for a Pi4 Model b (Only model that supports OTG)
 ```
 git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
