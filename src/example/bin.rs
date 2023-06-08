@@ -13,7 +13,7 @@ extern crate hid_api_rs;
 pub fn main() {
     let specification: HidSpecification = HidSpecification {
         mouse_inputs: Some([String::from("/dev/input/mice")].to_vec()),
-        keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd"), String::from("/dev/input/by-id/usb-Logitech_G413_Silver_Mechanical_Gaming_Keyboard_1172384C3230-event-kbd")].to_vec()),
+        keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd"), String::from("/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_0E6D395D3333-if01-event-kbd")].to_vec()),
         gadget_output: String::from("/dev/hidg0"),
     };
 
