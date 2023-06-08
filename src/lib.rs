@@ -4,8 +4,8 @@ use std::{fs::File, io, thread};
 
 use std::sync::RwLock;
 
-use gadgets::mouse::{self, Mouse};
 use gadgets::keyboard::{self, Keyboard, KeyboardState};
+use gadgets::mouse::{self, Mouse};
 
 pub mod gadgets;
 pub mod hid;
@@ -37,9 +37,13 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
 
     unsafe {
         GADGET_WRITER = Some(RwLock::new(BufWriter::new(gadget_file)));
-        thread::spawn(|| {
-            match &mut GADGET_WRITER {
-                Some(gadget_writer) => loop {
+        thread::spawn(|| match &mut GADGET_WRITER {
+            Some(gadget_writer) => {
+                loop {
+                    if MOUSE_INTERFACES.is_empty() {
+                        continue;
+                    }
+
                     for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
                         let mut mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
                         thread::scope(|scope| {
@@ -56,36 +60,45 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
                             if let Err(err) = mouse::attempt_flush(&mut mouse, &mut writer) {
                                 panic!("Failed to flush mouse, ({})", err)
                             };
-                        }    
+                        }
                     }
-                },
-                None => panic!("No gadget writer.")
+                }
             }
+            None => panic!("No gadget writer."),
         });
 
         match &mut GADGET_WRITER {
-            Some(gadget_writer) => loop {
-                for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
-                    let mut keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
-                    
-                    thread::scope(|scope| {
-                        let scoped_keyboard = &mut keyboard;
-                        scope.spawn(move || {
-                            if let Err(err) = keyboard::attempt_read(*scoped_keyboard, &mut GLOBAL_KEYBOARD_STATE) {
-                                println!("Failed to read keyboard, ({}). Removing from interface list!", err);
-                                KEYBOARD_INTERFACES.remove(keyboard_interface_index);
-                            };
-                        });
-                    });
-                }
+            Some(gadget_writer) => {
+                loop {
+                    if KEYBOARD_INTERFACES.is_empty() {
+                        continue;
+                    }
 
-                if let Ok(mut writer) = gadget_writer.try_write() {
-                    if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut writer) {
-                        panic!("Failed to flush keyboard, ({})", err)
-                    };
+                    for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
+                        let mut keyboard: &mut Keyboard =
+                            &mut KEYBOARD_INTERFACES[keyboard_interface_index];
+
+                        thread::scope(|scope| {
+                            let scoped_keyboard = &mut keyboard;
+                            scope.spawn(move || {
+                                if let Err(err) = keyboard::attempt_read(*scoped_keyboard, &mut GLOBAL_KEYBOARD_STATE) {
+                                    println!("Failed to read keyboard, ({}). Removing from interface list!", err);
+                                    KEYBOARD_INTERFACES.remove(keyboard_interface_index);
+                                };
+                            });
+                        });
+                    }
+
+                    if let Ok(mut writer) = gadget_writer.try_write() {
+                        if let Err(err) =
+                            keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut writer)
+                        {
+                            panic!("Failed to flush keyboard, ({})", err)
+                        };
+                    }
                 }
-            },
-            None => panic!("No gadget writer.")
+            }
+            None => panic!("No gadget writer."),
         }
     }
 }
@@ -98,14 +111,17 @@ pub fn stop_passthrough() {
                     for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
                         let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
                         mouse::push_mouse_event(MouseRaw::default(), mouse);
-    
+
                         if let Err(_) = mouse::attempt_flush(mouse, &mut writer) {
                             panic!("failed to flush mouse")
                         };
                     }
-    
-                    static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
-                    if let Err(err) = keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut writer) {
+
+                    static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
+                        Lazy::new(|| KeyboardState::default());
+                    if let Err(err) =
+                        keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut writer)
+                    {
                         panic!("failed to flush keyboard, ({})", err)
                     };
                 }
@@ -115,7 +131,10 @@ pub fn stop_passthrough() {
     }
 }
 
-pub fn start_watcher_threads(mouse_inputs: Option<Vec<String>>, keyboard_inputs: Option<Vec<String>>) {
+pub fn start_watcher_threads(
+    mouse_inputs: Option<Vec<String>>,
+    keyboard_inputs: Option<Vec<String>>,
+) {
     if let Some(mouse_inputs) = mouse_inputs {
         thread::spawn(move || unsafe {
             mouse::check_mouses(mouse_inputs, &mut MOUSE_INTERFACES);
@@ -130,13 +149,9 @@ pub fn start_watcher_threads(mouse_inputs: Option<Vec<String>>, keyboard_inputs:
 }
 
 pub fn get_mouses() -> &'static mut Vec<Mouse> {
-    unsafe {
-        return &mut MOUSE_INTERFACES
-    }
+    unsafe { return &mut MOUSE_INTERFACES }
 }
 
 pub fn get_keyboard() -> &'static mut KeyboardState {
-    unsafe {
-        return &mut GLOBAL_KEYBOARD_STATE
-    }
+    unsafe { return &mut GLOBAL_KEYBOARD_STATE }
 }
