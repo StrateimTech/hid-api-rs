@@ -507,7 +507,6 @@ pub fn attempt_read(
                 Err(err) => return Err(err),
             };
 
-            println!("Buffer length: {}", keyboard_read_length);
             if keyboard_read_length >= BUFFER_LENGTH {
                 let key_type = i16::from_ne_bytes([keyboard_buffer[8], keyboard_buffer[9]]);
                 let key_code = i16::from_ne_bytes([keyboard_buffer[10], keyboard_buffer[11]]);
@@ -533,23 +532,23 @@ pub fn attempt_read(
                 };
 
                 if event_type == EventType::EvKey {
-                    match usb_code {
-                        Some(code) => {
-                            println!("UsbCode: {:#?}", code.to_string());
-                        },
-                        None => {
-                            match key_modifier {
-                                Some(modifier) => {
-                                    println!("KeyModifier: {:#?}", modifier.to_string());
-                                },
-                                None => {
-                                    println!("Failed to find KeyCodeModifier or Usbcode! (ID: {:#?})", linux_code);
-                                }
-                            }
-                        }
-                    }
-                    println!("EventType: {:#?}", event_type);
-                    println!("Keystate: {:#?}", key_state);
+                    // match usb_code {
+                    //     Some(code) => {
+                    //         println!("UsbCode: {:#?}", code.to_string());
+                    //     },
+                    //     None => {
+                    //         match key_modifier {
+                    //             Some(modifier) => {
+                    //                 println!("KeyModifier: {:#?}", modifier.to_string());
+                    //             },
+                    //             None => {
+                    //                 println!("Failed to find KeyCodeModifier or Usbcode! (ID: {:#?})", linux_code);
+                    //             }
+                    //         }
+                    //     }
+                    // }
+                    // println!("EventType: {:#?}", event_type);
+                    // println!("Keystate: {:#?}", key_state);
 
                     match key_state {
                         KeyState::KeyDown | KeyState::KeyHold => {
