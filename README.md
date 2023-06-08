@@ -20,8 +20,7 @@ git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
 cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
 ```
-Once built transfer to pi & run, make sure to use elevated permissions since its accessing /dev/ directory.
-
+Once built transfer to pi using preferred method, before running make sure to use elevated permissions since its accessing /dev/ directory.
 
 # Report descriptor for configfs permanent gadget (Useable with library)
 ## English (Parsed by https://eleccelerator.com/usbdescreqparser)
