@@ -156,6 +156,10 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: &mut Mouse) {
 
 pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mut Vec<Mouse>) {
     loop {
+        if mouse_inputs.is_empty() {
+            continue;
+        }
+
         for mouse_index in 0..mouse_inputs.len() {
             let mouse_path = &mouse_inputs[mouse_index];
             if Path::exists(Path::new(mouse_path)) {

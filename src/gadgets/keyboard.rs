@@ -630,7 +630,11 @@ pub fn remove_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), E
 
 pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
     loop {
-        for keyboard_index in 0..keyboard_inputs.len()-1 {
+        if keyboard_inputs.is_empty() {
+            continue;
+        }
+        
+        for keyboard_index in 0..keyboard_inputs.len() {
             let keyboard_path = &keyboard_inputs[keyboard_index];
             if Path::exists(Path::new(keyboard_path)) {
                 println!("Found new keyboard adding to pool, ({})", keyboard_path);
