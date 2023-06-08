@@ -1,9 +1,8 @@
-use std::{io, ops::Deref, thread};
+use std::{io, thread};
 
 use hid_api_rs::{
     gadgets::{
-        keyboard::{self, KeyCodeModifier, UsbKeyCode},
-        mouse,
+        keyboard::{self, UsbKeyCode}
     },
     HidSpecification,
 };

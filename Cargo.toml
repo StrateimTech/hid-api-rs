@@ -1,7 +1,13 @@
 [package]
 name = "hid-api-rs"
-version = "0.1.0"
+description = "HID & GadgetFs hardware passthrough for injecting keyboard/mouse inputs."
+version = "1.0.0"
 edition = "2021"
+license = "GPL-2.0-or-later"
+readme = "README.md"
+homepage = "https://github.com/StrateimTech/hid-api-rs"
+repository = "https://github.com/StrateimTech/hid-api-rs"
+authors = ["Etho"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
