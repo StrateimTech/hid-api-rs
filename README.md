@@ -1,22 +1,25 @@
 # hid-api-rs
 This is a rewritten version of [HID-API's](https://github.com/StrateimTech/HID-API/) C# implementation, now in Rust!
 
+<img alt="https://crates.io/crates/hid-api-rs" src="https://img.shields.io/crates/v/hid-api-rs?style=flat-square">
+<img alt="https://docs.rs/hid-api-rs/" src="https://img.shields.io/docsrs/hid-api-rs?style=flat-square">
+
 Want to create cheats without calling system-level APIs for keystrokes and mouse inputs? This library makes it easy by converging your keyboards and mice directly into a microcomputer (Raspberry Pi), which is then routed into any other computer effectively passing through. This allows for independent external calls from the main computer, bypassing kernel-level anti-cheats. It's also capable of injecting keystrokes and mouse movements.
 
-This implementation is an improvement compared to the C# version as the modifier bit field is reported correctly and multiple keyboards can function simultaneously.
+This implementation is an improvement compared to the [C# version](https://github.com/StrateimTech/HID-API/) as the modifier bit field is reported correctly and multiple keyboards can function simultaneously.
 
 ## Setting Up
 If you're unfamiliar with the process of setting this up, follow these steps:
 
-1. Implement the [configfs gadget by Tobi](https://www.isticktoit.net/?p=1383) and replace "HERE" with the custom report descriptor in "echo -ne **HERE** > functions/hid.usb0".
+1. Follow this [guide](https://www.isticktoit.net/?p=1383) to set up a gadget that includes keyboard and mouse elements **however it will not function with this library**. Here's a completed [example script](https://github.com/StrateimTech/hid-api-rs/blob/master/example_gadget.sh/) that has been tested to work with this library.
 2. Ensure that the slave is connected to the master host PC (this should show up as a single device with both keyboard and mouse protocols). If you're using a Raspberry Pi 4 Model B, use a USBC-USBA Adapter or USBC cable.
 3. Connect a mouse or keyboard (spare if you have one initially to make it easier) to the slave.
 4. Find where your mouse is in `/dev/input/` (it should be `/dev/input/mice/`). Skip this step if you didn't plug a mouse in.
 5. If you're using a keyboard, it will differ and should show up in `/dev/input/by-id/` named `...-event-kbd`. Skip this step if you didn't plug a keyboard in.
 6. Now, find your gadget device path. It should be `/dev/hidg0` if not, attempt to brute force `hidg0-..x`. This part is important and is required to function.
-7. Once you've found the paths, plug them into the library, and it should work and passthrough your inputs from the slave to the master PC!
+7. Once you've found the paths, plug them into a project or the [example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs), build / run and viola! it should passthrough your inputs from the slave microcomputer to the master PC.
 
-## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs) for a Pi4 Model b (Only model that supports OTG)
+## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs) for a Pi4 Model b (Only model that supports USB OTG)
 ```
 git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
@@ -24,8 +27,11 @@ cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
 ```
 Once built transfer to pi using preferred method, before running make sure to use elevated permissions since its accessing /dev/ directory.
 
-# Report descriptor for configfs permanent gadget (Useable with library)
-## English (Parsed by https://eleccelerator.com/usbdescreqparser)
+## Requirements
+- Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B)
+- Keyboard or Mouse
+
+# Report descriptor for configfs gadget
 ```
 0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
 0x09, 0x02,        // Usage (Mouse)
@@ -96,6 +102,7 @@ Once built transfer to pi using preferred method, before running make sure to us
 
 // 133 bytes
 ```
+## Parsed by https://eleccelerator.com/usbdescreqparser
 
 ## HEX
 ```
