@@ -1,8 +1,7 @@
 # hid-api-rs
 This is a rewritten version of [HID-API's](https://github.com/StrateimTech/HID-API/) C# implementation, now in Rust!
 
-<img alt="https://crates.io/crates/hid-api-rs" src="https://img.shields.io/crates/v/hid-api-rs?style=flat-square">
-<img alt="https://docs.rs/hid-api-rs/" src="https://img.shields.io/docsrs/hid-api-rs?style=flat-square">
+[![Crates.io](https://img.shields.io/crates/v/hid-api-rs?style=flat-square)](https://crates.io/crates/hid-api-rs) [![docs.rs](https://img.shields.io/docsrs/hid-api-rs?style=flat-square)](https://docs.rs/hid-api-rs/)
 
 Want to create cheats without calling system-level APIs for keystrokes and mouse inputs? This library makes it easy by converging your keyboards and mice directly into a microcomputer (Raspberry Pi), which is then routed into any other computer effectively passing through. This allows for independent external calls from the main computer, bypassing kernel-level anti-cheats. It's also capable of injecting keystrokes and mouse movements.
 
