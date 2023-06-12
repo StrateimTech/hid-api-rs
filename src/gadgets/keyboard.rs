@@ -656,10 +656,21 @@ pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'
 
 pub fn is_key_down(
     key: UsbKeyCode,
-    global_keyboard_state: &'static mut KeyboardState,
+    global_keyboard_state: &&'static mut KeyboardState,
 ) -> bool {
     if let Ok(keyboard_state) = global_keyboard_state.keys_down.try_read() {
         return keyboard_state.contains(&(key as i32))
+    }
+
+    false
+}
+
+pub fn is_modifier_down(
+    modifier: KeyCodeModifier,
+    global_keyboard_state: &&'static mut KeyboardState,
+) -> bool {
+    if let Ok(modifiers_down) = global_keyboard_state.modifiers_down.try_read() {
+        return modifiers_down.contains(&(modifier as i32))
     }
 
     false

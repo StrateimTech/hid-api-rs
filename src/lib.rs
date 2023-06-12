@@ -131,7 +131,7 @@ pub fn stop_passthrough() {
     }
 }
 
-pub fn start_watcher_threads(
+fn start_watcher_threads(
     mouse_inputs: Option<Vec<String>>,
     keyboard_inputs: Option<Vec<String>>,
 ) {
