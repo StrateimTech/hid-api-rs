@@ -49,9 +49,9 @@ impl Default for MouseState {
 }
 
 pub struct MouseRaw {
-    pub left_button: bool,
-    pub right_button: bool,
-    pub middle_button: bool,
+    pub left_button: Option<bool>,
+    pub right_button: Option<bool>,
+    pub middle_button: Option<bool>,
 
     pub relative_x: i16,
     pub relative_y: i16,
@@ -61,9 +61,9 @@ pub struct MouseRaw {
 impl Default for MouseRaw {
     fn default() -> Self {
         MouseRaw {
-            left_button: false,
-            right_button: false,
-            middle_button: false,
+            left_button: None,
+            right_button: None,
+            middle_button: None,
             relative_x: 0,
             relative_y: 0,
             relative_wheel: 0,
@@ -115,9 +115,9 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error>{
                 }
 
                 let raw_mouse = MouseRaw {
-                    left_button: left_button,
-                    right_button: right_button,
-                    middle_button: middle_button,
+                    left_button: Some(left_button),
+                    right_button: Some(right_button),
+                    middle_button: Some(middle_button),
                     relative_x: relative_x,
                     relative_y: relative_y,
                     relative_wheel: relative_wheel,
@@ -138,18 +138,49 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error>{
 }
 
 pub fn push_mouse_event(raw_data: MouseRaw, mouse: &mut Mouse) {
-    if let Ok(mut buffer) = mouse.mouse_data_buffer.try_write() {
+    if let Some(raw_left_button) = raw_data.left_button {
         if let Ok(mut left_button) = mouse.mouse_state.left_button.write() {
-            *left_button = raw_data.left_button;
+            *left_button = raw_left_button;
         }
+    }
 
+    if let Some(raw_right_button) = raw_data.right_button {
         if let Ok(mut right_button) = mouse.mouse_state.right_button.write() {
-            *right_button = raw_data.right_button;
+            *right_button = raw_right_button;
         }
-
+    }
+    
+    if let Some(raw_middle_button) = raw_data.middle_button {
         if let Ok(mut middle_button) = mouse.mouse_state.middle_button.write() {
-            *middle_button = raw_data.middle_button;
+            *middle_button = raw_middle_button;
         }
+    }
+
+    if let Ok(mut buffer) = mouse.mouse_data_buffer.write() {
+        buffer.push(raw_data);
+    }
+}
+
+pub fn push_mouse_event_low_priority(raw_data: MouseRaw, mouse: &mut Mouse) {
+    if let Some(raw_left_button) = raw_data.left_button {
+        if let Ok(mut left_button) = mouse.mouse_state.left_button.try_write() {
+            *left_button = raw_left_button;
+        }
+    }
+
+    if let Some(raw_right_button) = raw_data.right_button {
+        if let Ok(mut right_button) = mouse.mouse_state.right_button.try_write() {
+            *right_button = raw_right_button;
+        }
+    }
+    
+    if let Some(raw_middle_button) = raw_data.middle_button {
+        if let Ok(mut middle_button) = mouse.mouse_state.middle_button.try_write() {
+            *middle_button = raw_middle_button;
+        }
+    }
+
+    if let Ok(mut buffer) = mouse.mouse_data_buffer.try_write() {
         buffer.push(raw_data);
     }
 }
@@ -188,7 +219,7 @@ pub fn attempt_flush(
     mouse: &mut Mouse,
     gadget_writer: &mut BufWriter<&mut File>,
 ) -> Result<(), Error> {
-    match mouse.mouse_data_buffer.try_read() {
+    match mouse.mouse_data_buffer.read() {
         Ok(mouse_buffer) => {
             // println!("Attempting data buffer flush! (len: {})", mouse_buffer.len());
             for mouse_raw in mouse_buffer.iter() {
@@ -197,10 +228,10 @@ pub fn attempt_flush(
                 }
             }
         }
-        Err(_) => {
+        Err(err) => {
             return Err(Error::new(
                 ErrorKind::Other,
-                String::from("Failed to read from mouse data buffer!"),
+                String::from(format!("Failed to read from mouse data buffer poisoned! ({})", err)),
             ))
         }
     }

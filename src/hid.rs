@@ -37,9 +37,17 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> 
 
     let mut buttons = 0u8;
     let bits = buttons.view_bits_mut::<Lsb0>();
-    bits.set(0, raw.left_button);
-    bits.set(1, raw.right_button);
-    bits.set(2, raw.middle_button);
+    if let Some(left_button) = raw.left_button {
+        bits.set(0, left_button);
+    }
+
+    if let Some(right_button) = raw.right_button {
+        bits.set(1, right_button);
+    }
+
+    if let Some(middle_button) = raw.middle_button {
+        bits.set(2, middle_button);
+    }
 
     let mouse_x: &[u16] = &[raw.relative_x as u16];
     let mouse_y: &[u16] = &[raw.relative_y as u16];
