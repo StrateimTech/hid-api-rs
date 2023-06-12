@@ -1,8 +1,8 @@
 use std::{io, thread};
-
 use hid_api_rs::{
     gadgets::{
-        keyboard::{self, UsbKeyCode}
+        keyboard::{self, UsbKeyCode},
+        mouse::{self, MouseRaw}
     },
     HidSpecification,
 };
@@ -28,34 +28,36 @@ pub fn main() {
 
         loop {
             let keyboard_state = hid_api_rs::get_keyboard();
-
-            // if let Ok(ref modifier_rwl) = keyboard_state.modifier.try_read() {
-            //     if let Some(modifier) = modifier_rwl.deref() {
-            //         println!("Modifier: {}", modifier.to_string());
-            //     }
-            // }
-
-            // if let Ok(ref keys_down) = keyboard_state.keys_down.try_read() {
-            //     for key_down in keys_down.to_vec() {
-            //         if let Ok(key) = UsbKeyCode::try_from(key_down as i16) {
-            //             println!("Key Down: {}", key.to_string())
-            //         };
-            //     }
-            // }
-
-            if keyboard::is_key_down(UsbKeyCode::KEYY, keyboard_state) {
+            if keyboard::is_key_down(UsbKeyCode::KEYY, &keyboard_state) {
                 key_switch = !key_switch;
             }
 
-            // println!("Total mouses in circulation: {}",h id_api_rs::get_mouses().len());
-            for mouse in hid_api_rs::get_mouses() {
-                if let Ok(left_button) = mouse.mouse_state.left_button.try_read() {
-                    if *left_button == true {
-                        drop(left_button);
-                        
-                        println!("left: True");
-                        println!("Key Switch: {}", key_switch)
-                    }
+            if keyboard::is_modifier_down(keyboard::KeyCodeModifier::KEYLEFTMETA, &keyboard_state) {
+                println!("Meta key down!");
+            }
+
+            let mouses = hid_api_rs::get_mouses();
+            // println!("Total mouses in circulation: {}", mouses.len());
+            for mouse_index in 0..mouses.len() {
+                let mouse = &mut mouses[mouse_index];
+
+                let mut left: bool = false;
+                if let Ok(left_button) = &mouse.mouse_state.left_button.try_read() {
+                    left = **left_button;
+                    drop(left_button);
+                    
+                    // println!("left: {}", left);
+                    // println!("Key Switch: {}", key_switch);
+                };
+
+                if left {
+                    let mouse_raw = MouseRaw {
+                        relative_x: 1,
+                        ..Default::default()
+                    };
+
+                    mouse::push_mouse_event_low_priority(mouse_raw, mouse);
+                    continue;
                 }
 
                 if let Ok(middle_button) = mouse.mouse_state.middle_button.try_read() {
@@ -89,7 +91,7 @@ pub fn main() {
                         switcher = !switcher;
                     }
                 }
-                // println!("Left: {}, Right: {}, Middle: {}", mouses.mouse_state.left_button.read()., mouses.mouse_state.right_button.read().unwrap(), mouses.mouse_state.middle_button.read().unwrap());
+                // println!("Left: {}, Right: {}, Middle: {}", mouse.mouse_state.left_button.read().unwrap(), mouse.mouse_state.right_button.read().unwrap(), mouse.mouse_state.middle_button.read().unwrap());
             }
         }
     });
