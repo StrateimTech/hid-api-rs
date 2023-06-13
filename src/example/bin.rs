@@ -52,6 +52,7 @@ pub fn main() {
 
                 if left {
                     let mouse_raw = MouseRaw {
+                        left_button: Some(false),
                         relative_x: 1,
                         ..Default::default()
                     };
