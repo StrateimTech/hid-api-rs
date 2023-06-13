@@ -10,7 +10,7 @@ use bitvec::prelude::Lsb0;
 use bitvec::view::BitView;
 
 use crate::gadgets::keyboard::KeyboardState;
-use crate::gadgets::mouse::{Mouse, MouseRaw};
+use crate::gadgets::mouse::MouseRaw;
 
 static mut GADGET_DEVICE_FILE: Option<File> = None;
 
@@ -73,17 +73,6 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> 
     Ok(())
 }
 
-pub fn write_mouse_scroll_feature(mouse: &mut Mouse) -> Result<(), Error> {
-    let mouse_scroll: [u8; 6] = [0xf3, 200, 0xf3, 100, 0xf3, 80];
-    if let Some(ref mut mouse_data_buffer) = mouse.mouse_device_file {
-        match mouse_data_buffer.write(&mouse_scroll) {
-            Ok(_) => return Ok(()),
-            Err(err) => return Err(err)
-        };
-    }
-    Ok(())
-}
-
 pub fn write_keyboard(
     keyboard_state: &KeyboardState,
     gadget_writer: &mut BufWriter<&mut File>,
@@ -110,7 +99,7 @@ pub fn write_keyboard(
 
     match modifiers_down.is_empty() {
         true => formatted_event.push(0),
-        false => formatted_event.push(modifier)
+        false => formatted_event.push(modifier),
     }
     formatted_event.push(0);
 

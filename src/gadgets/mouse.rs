@@ -1,10 +1,10 @@
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 
-use std::io::{BufWriter, Error, ErrorKind, Read};
+use std::io::{BufWriter, Error, ErrorKind, Read, Write};
 use std::sync::RwLock;
 
-use crate::hid;
+use crate::{hid, HidMouse};
 
 pub struct Mouse {
     pub mouse_data_buffer: RwLock<Vec<MouseRaw>>,
@@ -71,7 +71,7 @@ impl Default for MouseRaw {
     }
 }
 
-pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error>{
+pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error> {
     const BUFFER_LENGTH: usize = 4;
 
     match mouse.mouse_device_file {
@@ -92,21 +92,22 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error>{
                 if let Ok(invert_x) = mouse.mouse_state.invert_x.read() {
                     if *invert_x {
                         relative_x *= -1;
-                    }                 
+                    }
                 }
 
                 let mut relative_y = (i8::from_be_bytes(mouse_buffer[2].to_be_bytes()) * -1) as i16;
                 if let Ok(invert_y) = mouse.mouse_state.invert_y.read() {
                     if *invert_y {
                         relative_y *= -1;
-                    }                 
+                    }
                 }
 
-                let mut relative_wheel = (i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) * -1) as i16;
+                let mut relative_wheel =
+                    (i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) * -1) as i16;
                 if let Ok(invert_wheel) = mouse.mouse_state.invert_wheel.read() {
                     if *invert_wheel {
                         relative_wheel *= -1;
-                    }                 
+                    }
                 }
 
                 if let Ok(mouse_sensitivity) = mouse.mouse_state.sensitivity_multiplier.read() {
@@ -126,8 +127,8 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error>{
                 // println!("X: {}, Y: {}, WHEEL: {}, LEFT: {}, RIGHT: {}, MIDDLE: {}", relative_x, relative_y, relative_wheel, left_button, right_button, middle_button);
                 push_mouse_event(raw_mouse, mouse)
             }
-            return Ok(())
-        },
+            return Ok(());
+        }
         None => {
             return Err(Error::new(
                 ErrorKind::Other,
@@ -149,7 +150,7 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: &mut Mouse) {
             *right_button = raw_right_button;
         }
     }
-    
+
     if let Some(raw_middle_button) = raw_data.middle_button {
         if let Ok(mut middle_button) = mouse.mouse_state.middle_button.write() {
             *middle_button = raw_middle_button;
@@ -173,7 +174,7 @@ pub fn push_mouse_event_low_priority(raw_data: MouseRaw, mouse: &mut Mouse) {
             *right_button = raw_right_button;
         }
     }
-    
+
     if let Some(raw_middle_button) = raw_data.middle_button {
         if let Ok(mut middle_button) = mouse.mouse_state.middle_button.try_write() {
             *middle_button = raw_middle_button;
@@ -185,7 +186,7 @@ pub fn push_mouse_event_low_priority(raw_data: MouseRaw, mouse: &mut Mouse) {
     }
 }
 
-pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mut Vec<Mouse>) {
+pub fn check_mouses(mut mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static mut Vec<Mouse>) {
     loop {
         if mouse_inputs.is_empty() {
             continue;
@@ -193,8 +194,12 @@ pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mu
 
         for mouse_index in 0..mouse_inputs.len() {
             let mouse_path = &mouse_inputs[mouse_index];
-            if Path::exists(Path::new(mouse_path)) {
-                let mouse = match OpenOptions::new().write(true).read(true).open(mouse_path) {
+            if Path::exists(Path::new(&mouse_path.mouse_path)) {
+                let mouse = match OpenOptions::new()
+                    .write(true)
+                    .read(true)
+                    .open(&mouse_path.mouse_path)
+                {
                     Ok(result) => result,
                     Err(_) => continue,
                 };
@@ -204,7 +209,7 @@ pub fn check_mouses(mut mouse_inputs: Vec<String>, mouse_interfaces: &'static mu
                     ..Default::default()
                 };
 
-                if let Err(err) = hid::write_mouse_scroll_feature(&mut mouse_interface) {
+                if let Err(err) = write_magic_scroll_feature(&mut mouse_interface) {
                     panic!("Failed to write mouse scroll feature! {}", err);
                 }
 
@@ -223,7 +228,7 @@ pub fn attempt_flush(
         Ok(mouse_buffer) => {
             // println!("Attempting data buffer flush! (len: {})", mouse_buffer.len());
             for mouse_raw in mouse_buffer.iter() {
-                if let Err(err) = hid::write_mouse(mouse_raw, gadget_writer){
+                if let Err(err) = hid::write_mouse(mouse_raw, gadget_writer) {
                     return Err(err);
                 }
             }
@@ -231,11 +236,58 @@ pub fn attempt_flush(
         Err(err) => {
             return Err(Error::new(
                 ErrorKind::Other,
-                String::from(format!("Failed to read from mouse data buffer poisoned! ({})", err)),
+                String::from(format!(
+                    "Failed to read from mouse data buffer poisoned! ({})",
+                    err
+                )),
             ))
         }
     }
 
     mouse.mouse_data_buffer = RwLock::new(Vec::new());
     Ok(())
+}
+
+// https://wiki.osdev.org/PS/2_Mouse
+pub fn write_magic_scroll_feature(mouse: &mut Mouse) -> Result<(), Error> {
+    let mouse_scroll: [u8; 6] = [0xf3, 200, 0xf3, 100, 0xf3, 80];
+    if let Some(ref mut mouse_data_buffer) = mouse.mouse_device_file {
+        match mouse_data_buffer.write_all(&mouse_scroll) {
+            Ok(_) => {
+                match mouse_data_buffer.flush() {
+                    Ok(_) => return Ok(()),
+                    Err(err) => return Err(err),
+                };
+            }
+            Err(err) => return Err(err),
+        };
+    }
+
+    Err(Error::new(
+        ErrorKind::Other,
+        String::from("Failed push magic scroll feature to mouse!"),
+    ))
+}
+
+pub fn write_poll_rate(mouse: &mut Mouse, poll_rate: i32) -> Result<(), Error> {
+    let mut poll_rate_packet: Vec<u8> = Vec::new();
+    poll_rate_packet.push(0xf3);
+    poll_rate_packet.append(&mut poll_rate.to_be_bytes().to_vec());
+
+    if let Some(ref mut mouse_data_buffer) = mouse.mouse_device_file {
+        match mouse_data_buffer.write_all(&poll_rate_packet) {
+            Ok(_) => {
+                match mouse_data_buffer.flush() {
+                    Ok(_) => return Ok(()),
+                    Err(err) => return Err(err),
+                };
+            }
+            Err(err) => return Err(err),
+        }
+    }
+
+    Err(Error::new(
+        ErrorKind::Other,
+        String::from("Failed set polling rate feature to mouse! (Defaulting to 125 hz)"),
+    ))
 }

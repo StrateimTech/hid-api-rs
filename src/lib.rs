@@ -11,9 +11,15 @@ pub mod gadgets;
 pub mod hid;
 
 pub struct HidSpecification {
-    pub mouse_inputs: Option<Vec<String>>,
+    pub mouse_inputs: Option<Vec<HidMouse>>,
     pub keyboard_inputs: Option<Vec<String>>,
     pub gadget_output: String,
+}
+
+#[derive(Clone)]
+pub struct HidMouse {
+    pub mouse_path: String,
+    pub mouse_poll_rate: Option<i32>,
 }
 
 use once_cell::sync::Lazy;
@@ -132,7 +138,7 @@ pub fn stop_passthrough() {
 }
 
 fn start_watcher_threads(
-    mouse_inputs: Option<Vec<String>>,
+    mouse_inputs: Option<Vec<HidMouse>>,
     keyboard_inputs: Option<Vec<String>>,
 ) {
     if let Some(mouse_inputs) = mouse_inputs {

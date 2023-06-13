@@ -1,17 +1,17 @@
-use std::{io, thread};
 use hid_api_rs::{
     gadgets::{
         keyboard::{self, UsbKeyCode},
-        mouse::{self, MouseRaw}
+        mouse::{self, MouseRaw},
     },
-    HidSpecification,
+    HidMouse, HidSpecification,
 };
+use std::{io, thread};
 
 extern crate hid_api_rs;
 
 pub fn main() {
     let specification: HidSpecification = HidSpecification {
-        mouse_inputs: Some([String::from("/dev/input/mice")].to_vec()),
+        mouse_inputs: Some([HidMouse {mouse_path: String::from("/dev/input/mice"), mouse_poll_rate: Some(1000)}].to_vec()),
         keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd"), String::from("/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_0E6D395D3333-if01-event-kbd")].to_vec()),
         gadget_output: String::from("/dev/hidg0"),
     };
@@ -45,7 +45,7 @@ pub fn main() {
                 if let Ok(left_button) = &mouse.mouse_state.left_button.try_read() {
                     left = **left_button;
                     drop(left_button);
-                    
+
                     // println!("left: {}", left);
                     // println!("Key Switch: {}", key_switch);
                 };
@@ -53,7 +53,7 @@ pub fn main() {
                 if left {
                     let mouse_raw = MouseRaw {
                         left_button: Some(false),
-                        relative_x: 1,
+                        relative_x: 25,
                         ..Default::default()
                     };
 
@@ -73,7 +73,8 @@ pub fn main() {
                                 *invert_y = true;
                             }
 
-                            if let Ok(mut invert_wheel) = mouse.mouse_state.invert_wheel.try_write() {
+                            if let Ok(mut invert_wheel) = mouse.mouse_state.invert_wheel.try_write()
+                            {
                                 *invert_wheel = true;
                             }
                         } else {
@@ -85,7 +86,8 @@ pub fn main() {
                                 *invert_y = false;
                             }
 
-                            if let Ok(mut invert_wheel) = mouse.mouse_state.invert_wheel.try_write() {
+                            if let Ok(mut invert_wheel) = mouse.mouse_state.invert_wheel.try_write()
+                            {
                                 *invert_wheel = false;
                             }
                         }
