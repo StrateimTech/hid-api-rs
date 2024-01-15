@@ -18,13 +18,17 @@ If you're unfamiliar with the process of setting this up, follow these steps:
 6. Now, find your gadget device path. It should be `/dev/hidg0` if not, attempt to brute force `hidg0-..x`. This part is important and is required to function.
 7. Once you've found the paths, plug them into a project or the [example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs), build / run and viola! it should passthrough your inputs from the slave microcomputer to the master PC.
 
-## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs) for a Pi4 Model b (Only model that supports USB OTG)
+## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs) for a Pi4 Model b (Only model that supports USB OTG)
 ```
 git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
 cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
 ```
 Once built transfer to pi using preferred method, before running make sure to use elevated permissions since its accessing /dev/ directory.
+
+## Examples
+- ``hid_api_example``, Has both keyboard & mouse showcase code
+- ``hid_api_example_mouse``, Has mouse only and shows current state of mouse every 500 millis.
 
 ## Requirements
 - Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B)
