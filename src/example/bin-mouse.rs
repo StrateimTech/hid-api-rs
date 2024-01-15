@@ -12,8 +12,11 @@ pub fn main() {
     env::set_var("RUST_BACKTRACE", "full");
 
     let specification: HidSpecification = HidSpecification {
+        // TODO: /dev/input/mice will usually be the same for everyone. if not find your device by-id
         mouse_inputs: Some([HidMouse { mouse_path: String::from("/dev/input/mice"), mouse_poll_rate: Some(1000) }].to_vec()),
+        // TODO: USER!, replace these path's to your own keyboard paths for functionaility! These will always be different for each user (Different keyboards & hardware)
         keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_0E6D395D3333-if01-event-kbd")].to_vec()),
+        // keyboard_inputs: None,
         gadget_output: String::from("/dev/hidg0"),
     };
 
