@@ -6,6 +6,7 @@ use hid_api_rs::{
     HidMouse, HidSpecification,
 };
 use std::{io, thread};
+use std::time::Duration;
 
 extern crate hid_api_rs;
 
@@ -79,6 +80,8 @@ pub fn main() {
                     continue;
                 }
             }
+            
+            thread::sleep(Duration::from_millis(1));
         }
     });
 
