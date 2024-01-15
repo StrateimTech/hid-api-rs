@@ -18,7 +18,7 @@ If you're unfamiliar with the process of setting this up, follow these steps:
 6. Now, find your gadget device path. It should be `/dev/hidg0` if not, attempt to brute force `hidg0-..x`. This part is important and is required to function.
 7. Once you've found the paths, plug them into a project or the [example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs), build / run and viola! it should passthrough your inputs from the slave microcomputer to the master PC.
 
-## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs) for a Pi4 Model b (Only model that supports USB OTG)
+## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs) for a Pi4 Model b (Only model that supports USB OTG)
 ```
 git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
@@ -30,6 +30,10 @@ Once built transfer to pi using preferred method, before running make sure to us
 - Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B)
 - Keyboard or Mouse
 
+## Examples
+- ``hid_api_example``, Has both keyboard & mouse showcase code
+- ``hid_api_example_mouse``, Has mouse only and shows current state of mouse every 500 millis.
+
 # Report descriptor for configfs gadget
 ```
 0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
@@ -40,14 +44,14 @@ Once built transfer to pi using preferred method, before running make sure to us
 0x85, 0x01,        //     Report ID (1)
 0x05, 0x09,        //     Usage Page (Button)
 0x19, 0x01,        //     Usage Minimum (0x01)
-0x29, 0x03,        //     Usage Maximum (0x03)
+0x29, 0x05,        //     Usage Maximum (0x05)
 0x15, 0x00,        //     Logical Minimum (0)
 0x25, 0x01,        //     Logical Maximum (1)
-0x95, 0x03,        //     Report Count (3)
+0x95, 0x05,        //     Report Count (5)
 0x75, 0x01,        //     Report Size (1)
 0x81, 0x02,        //     Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
 0x95, 0x01,        //     Report Count (1)
-0x75, 0x05,        //     Report Size (5)
+0x75, 0x03,        //     Report Size (3)
 0x81, 0x03,        //     Input (Const,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
 0x05, 0x01,        //     Usage Page (Generic Desktop Ctrls)
 0x09, 0x30,        //     Usage (X)

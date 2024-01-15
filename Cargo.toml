@@ -25,4 +25,8 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "hid_api_example"
-path = "src/example/bin.rs"
+path = "src/example/bin-generic.rs"
+
+[[bin]]
+name = "hid_api_example_mouse"
+path = "src/example/bin-mouse.rs"

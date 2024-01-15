@@ -49,6 +49,14 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> 
         bits.set(2, middle_button);
     }
 
+    if let Some(four_button) = raw.four_button {
+        bits.set(3, four_button);
+    }
+
+    if let Some(five_button) = raw.five_button {
+        bits.set(4, five_button);
+    }
+
     let mouse_x: &[u16] = &[raw.relative_x as u16];
     let mouse_y: &[u16] = &[raw.relative_y as u16];
     let mouse_wheel: &[u16] = &[raw.relative_wheel as u16];

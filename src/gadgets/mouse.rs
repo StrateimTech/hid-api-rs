@@ -8,7 +8,7 @@ use crate::{hid, HidMouse};
 
 pub struct Mouse {
     pub mouse_data_buffer: RwLock<Vec<MouseRaw>>,
-    pub mouse_state: MouseState,
+    pub mouse_state: RwLock<MouseState>,
     pub mouse_device_file: Option<File>,
 }
 
@@ -16,34 +16,38 @@ impl Default for Mouse {
     fn default() -> Self {
         Mouse {
             mouse_data_buffer: RwLock::new(Vec::new()),
-            mouse_state: MouseState::default(),
+            mouse_state: RwLock::from(MouseState::default()),
             mouse_device_file: None,
         }
     }
 }
 
 pub struct MouseState {
-    pub left_button: RwLock<bool>,
-    pub right_button: RwLock<bool>,
-    pub middle_button: RwLock<bool>,
+    pub left_button: bool,
+    pub right_button: bool,
+    pub middle_button: bool,
+    pub four_button: bool,
+    pub five_button: bool,
 
-    pub invert_x: RwLock<bool>,
-    pub invert_y: RwLock<bool>,
-    pub invert_wheel: RwLock<bool>,
+    pub invert_x: bool,
+    pub invert_y: bool,
+    pub invert_wheel: bool,
 
-    pub sensitivity_multiplier: RwLock<i16>,
+    pub sensitivity_multiplier: i16,
 }
 
 impl Default for MouseState {
     fn default() -> Self {
         MouseState {
-            left_button: RwLock::new(false),
-            right_button: RwLock::new(false),
-            middle_button: RwLock::new(false),
-            invert_x: RwLock::new(false),
-            invert_y: RwLock::new(false),
-            invert_wheel: RwLock::new(false),
-            sensitivity_multiplier: RwLock::new(1),
+            left_button: false,
+            right_button: false,
+            middle_button: false,
+            four_button: false,
+            five_button: false,
+            invert_x: false,
+            invert_y: false,
+            invert_wheel: false,
+            sensitivity_multiplier: 1,
         }
     }
 }
@@ -52,6 +56,8 @@ pub struct MouseRaw {
     pub left_button: Option<bool>,
     pub right_button: Option<bool>,
     pub middle_button: Option<bool>,
+    pub four_button: Option<bool>,
+    pub five_button: Option<bool>,
 
     pub relative_x: i16,
     pub relative_y: i16,
@@ -64,6 +70,8 @@ impl Default for MouseRaw {
             left_button: None,
             right_button: None,
             middle_button: None,
+            four_button: None,
+            five_button: None,
             relative_x: 0,
             relative_y: 0,
             relative_wheel: 0,
@@ -88,44 +96,59 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error> {
                 let right_button = mouse_buffer[0] & 0x2 > 0;
                 let middle_button = mouse_buffer[0] & 0x4 > 0;
 
-                let mut relative_x = (i8::from_be_bytes(mouse_buffer[1].to_be_bytes())) as i16;
-                if let Ok(invert_x) = mouse.mouse_state.invert_x.read() {
-                    if *invert_x {
-                        relative_x *= -1;
-                    }
+                let mut mouse_four = false;
+                let mut mouse_five = false;
+
+                // https://isdaman.com/alsos/hardware/mouse/ps2interface.htm
+                if mouse_read_length == 4 {
+                    mouse_four = mouse_buffer[3] & 0x10 > 0;
+                    mouse_five = mouse_buffer[3] & 0x20 > 0;
                 }
 
                 let mut relative_y = (i8::from_be_bytes(mouse_buffer[2].to_be_bytes()) * -1) as i16;
-                if let Ok(invert_y) = mouse.mouse_state.invert_y.read() {
-                    if *invert_y {
+                let mut relative_x = (i8::from_be_bytes(mouse_buffer[1].to_be_bytes())) as i16;
+
+                let mut relative_wheel = (i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) * -1) as i16;
+                if mouse_read_length == 4 {
+                    let mut z = ((mouse_buffer[3] & 0x8) | (mouse_buffer[3] & 0x4) | (mouse_buffer[3] & 0x2) | (mouse_buffer[3] & 0x1)) as i8;
+
+                    if mouse_buffer[3] & 0x8 > 0 {
+                        z = (z << 4) >> 4
+                    }
+
+                    relative_wheel = (i8::from_be_bytes(z.to_be_bytes()) * -1) as i16;
+                }
+
+                if let Ok(mouse_state) = &mouse.mouse_state.try_read() {
+                    if mouse_state.invert_x {
+                        relative_x *= -1;
+                    }
+
+                    if mouse_state.invert_y {
                         relative_y *= -1;
                     }
-                }
 
-                let mut relative_wheel =
-                    (i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) * -1) as i16;
-                if let Ok(invert_wheel) = mouse.mouse_state.invert_wheel.read() {
-                    if *invert_wheel {
+                    if mouse_state.invert_wheel {
                         relative_wheel *= -1;
                     }
-                }
 
-                if let Ok(mouse_sensitivity) = mouse.mouse_state.sensitivity_multiplier.read() {
-                    relative_x *= *mouse_sensitivity;
-                    relative_y *= *mouse_sensitivity;
+                    relative_x *= mouse_state.sensitivity_multiplier;
+                    relative_y *= mouse_state.sensitivity_multiplier;
                 }
 
                 let raw_mouse = MouseRaw {
                     left_button: Some(left_button),
                     right_button: Some(right_button),
                     middle_button: Some(middle_button),
-                    relative_x: relative_x,
-                    relative_y: relative_y,
-                    relative_wheel: relative_wheel,
+                    four_button: Some(mouse_four),
+                    five_button: Some(mouse_five),
+                    relative_x,
+                    relative_y,
+                    relative_wheel,
                 };
 
                 // println!("X: {}, Y: {}, WHEEL: {}, LEFT: {}, RIGHT: {}, MIDDLE: {}", relative_x, relative_y, relative_wheel, left_button, right_button, middle_button);
-                push_mouse_event(raw_mouse, mouse)
+                push_mouse_event(raw_mouse, mouse);
             }
             return Ok(());
         }
@@ -139,50 +162,58 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error> {
 }
 
 pub fn push_mouse_event(raw_data: MouseRaw, mouse: &mut Mouse) {
-    if let Some(raw_left_button) = raw_data.left_button {
-        if let Ok(mut left_button) = mouse.mouse_state.left_button.write() {
-            *left_button = raw_left_button;
+    if let Ok(mut mouse_state) = mouse.mouse_state.write() {
+        if let Some(raw_left_button) = raw_data.left_button {
+            mouse_state.left_button = raw_left_button;
         }
-    }
 
-    if let Some(raw_right_button) = raw_data.right_button {
-        if let Ok(mut right_button) = mouse.mouse_state.right_button.write() {
-            *right_button = raw_right_button;
+        if let Some(raw_right_button) = raw_data.right_button {
+            mouse_state.right_button = raw_right_button;
         }
-    }
 
-    if let Some(raw_middle_button) = raw_data.middle_button {
-        if let Ok(mut middle_button) = mouse.mouse_state.middle_button.write() {
-            *middle_button = raw_middle_button;
+        if let Some(raw_middle_button) = raw_data.middle_button {
+            mouse_state.middle_button = raw_middle_button;
         }
-    }
 
-    if let Ok(mut buffer) = mouse.mouse_data_buffer.write() {
-        buffer.push(raw_data);
-    }
+        if let Some(raw_four_button) = raw_data.four_button {
+            mouse_state.four_button = raw_four_button;
+        }
+
+        if let Some(raw_five_button) = raw_data.five_button {
+            mouse_state.five_button = raw_five_button;
+        }
+
+        if let Ok(mut buffer) = mouse.mouse_data_buffer.write() {
+            buffer.push(raw_data);
+        }
+    };
 }
 
 pub fn push_mouse_event_low_priority(raw_data: MouseRaw, mouse: &mut Mouse) {
-    if let Some(raw_left_button) = raw_data.left_button {
-        if let Ok(mut left_button) = mouse.mouse_state.left_button.try_write() {
-            *left_button = raw_left_button;
+    if let Ok(mut mouse_state) = mouse.mouse_state.try_write() {
+        if let Some(raw_left_button) = raw_data.left_button {
+            mouse_state.left_button = raw_left_button;
         }
-    }
 
-    if let Some(raw_right_button) = raw_data.right_button {
-        if let Ok(mut right_button) = mouse.mouse_state.right_button.try_write() {
-            *right_button = raw_right_button;
+        if let Some(raw_right_button) = raw_data.right_button {
+            mouse_state.right_button = raw_right_button;
         }
-    }
 
-    if let Some(raw_middle_button) = raw_data.middle_button {
-        if let Ok(mut middle_button) = mouse.mouse_state.middle_button.try_write() {
-            *middle_button = raw_middle_button;
+        if let Some(raw_middle_button) = raw_data.middle_button {
+            mouse_state.middle_button = raw_middle_button;
         }
-    }
 
-    if let Ok(mut buffer) = mouse.mouse_data_buffer.try_write() {
-        buffer.push(raw_data);
+        if let Some(raw_four_button) = raw_data.four_button {
+            mouse_state.four_button = raw_four_button;
+        }
+
+        if let Some(raw_five_button) = raw_data.five_button {
+            mouse_state.five_button = raw_five_button;
+        }
+
+        if let Ok(mut buffer) = mouse.mouse_data_buffer.write() {
+            buffer.push(raw_data);
+        }
     }
 }
 
@@ -209,7 +240,7 @@ pub fn check_mouses(mut mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static 
                     ..Default::default()
                 };
 
-                if let Err(err) = write_magic_scroll_feature(&mut mouse_interface) {
+                if let Err(err) = write_magic_scroll_feature(&mut mouse_interface, true) {
                     panic!("Failed to write mouse scroll feature! {}", err);
                 }
 
@@ -249,8 +280,13 @@ pub fn attempt_flush(
 }
 
 // https://wiki.osdev.org/PS/2_Mouse
-pub fn write_magic_scroll_feature(mouse: &mut Mouse) -> Result<(), Error> {
-    let mouse_scroll: [u8; 6] = [0xf3, 200, 0xf3, 100, 0xf3, 80];
+pub fn write_magic_scroll_feature(mouse: &mut Mouse, side_buttons: bool) -> Result<(), Error> {
+    let mut mouse_scroll: [u8; 6] = [0xf3, 200, 0xf3, 100, 0xf3, 80];
+
+    if side_buttons {
+        mouse_scroll = [0xf3, 200, 0xf3, 200, 0xf3, 80];
+    }
+
     if let Some(ref mut mouse_data_buffer) = mouse.mouse_device_file {
         match mouse_data_buffer.write_all(&mouse_scroll) {
             Ok(_) => {
