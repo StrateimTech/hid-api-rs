@@ -80,7 +80,8 @@ pub fn main() {
                     continue;
                 }
             }
-            
+
+            // You should sleep as it allows the library to access mouse_state for a brief period reducing or removing device stutters.
             thread::sleep(Duration::from_millis(1));
         }
     });
