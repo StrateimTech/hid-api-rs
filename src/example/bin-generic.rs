@@ -47,8 +47,6 @@ pub fn main() {
                 if let Ok(mouse_state) = mouse.mouse_state.try_read() {
                     left = mouse_state.left_button;
                     middle = mouse_state.middle_button;
-
-                    // println!("Left: {}, Right: {}, Middle: {}", mouse.mouse_state.left_button.read().unwrap(), mouse.mouse_state.right_button.read().unwrap(), mouse.mouse_state.middle_button.read().unwrap());
                 }
 
                 if middle {
