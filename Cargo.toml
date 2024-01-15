@@ -15,9 +15,9 @@ keywords = ["hid", "utility", "usb", "mouse", "keyboard"]
 bitvec = "1.0.1"
 once_cell = "1.18.0"
 
-num_enum = "0.6.1"
-strum = "0.24.1"
-strum_macros = "0.24.3"
+num_enum = "0.7.2"
+strum = "0.25.0"
+strum_macros = "0.25.3"
 
 [lib]
 name = "hid_api_rs"
