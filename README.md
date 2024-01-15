@@ -26,13 +26,13 @@ cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
 ```
 Once built transfer to pi using preferred method, before running make sure to use elevated permissions since its accessing /dev/ directory.
 
-## Examples
-- ``hid_api_example``, Has both keyboard & mouse showcase code
-- ``hid_api_example_mouse``, Has mouse only and shows current state of mouse every 500 millis.
-
 ## Requirements
 - Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B)
 - Keyboard or Mouse
+
+## Examples
+- ``hid_api_example``, Has both keyboard & mouse showcase code
+- ``hid_api_example_mouse``, Has mouse only and shows current state of mouse every 500 millis.
 
 # Report descriptor for configfs gadget
 ```
