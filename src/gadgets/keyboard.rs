@@ -1,6 +1,6 @@
 use num_enum::FromPrimitive;
 use std::fs::OpenOptions;
-use std::io::{BufWriter, Error, ErrorKind, Read};
+use std::io::{BufWriter, Error, ErrorKind, Read, Write};
 use std::path::Path;
 use std::{fs::File, sync::RwLock};
 
@@ -92,16 +92,16 @@ pub enum LinuxKeyCode {
     KEYLEFTALT = 56,
     KEYSPACE = 57,
     KEYCAPSLOCK = 58,
-    KEYF1 = 59,
-    KEYF2 = 60,
-    KEYF3 = 61,
-    KEYF4 = 62,
-    KEYF5 = 63,
-    KEYF6 = 64,
-    KEYF7 = 65,
-    KEYF8 = 66,
-    KEYF9 = 67,
-    KEYF10 = 68,
+    // KEYF1 = 59,
+    // KEYF2 = 60,
+    // KEYF3 = 61,
+    // KEYF4 = 62,
+    // KEYF5 = 63,
+    // KEYF6 = 64,
+    // KEYF7 = 65,
+    // KEYF8 = 66,
+    // KEYF9 = 67,
+    // KEYF10 = 68,
     KEYNUMLOCK = 69,
     KEYSCROLLLOCK = 70,
     KEYKP7 = 71,
@@ -120,8 +120,8 @@ pub enum LinuxKeyCode {
 
     KEYZENKAKUHANKAKU = 85,
     KEY102ND = 86,
-    KEYF11 = 87,
-    KEYF12 = 88,
+    // KEYF11 = 87,
+    // KEYF12 = 88,
     KEYRO = 89,
     KEYKATAKANA = 90,
     KEYHIRAGANA = 91,
@@ -146,14 +146,10 @@ pub enum LinuxKeyCode {
     KEYINSERT = 110,
     KEYDELETE = 111,
     KEYMACRO = 112,
-    KEYMUTE = 113,
-    KEYVOLUMEDOWN = 114,
-    KEYVOLUMEUP = 115,
     KEYPOWER = 116,
     KEYKPEQUAL = 117,
     KEYKPPLUSMINUS = 118,
     KEYPAUSE = 119,
-    KEYSCALE = 120,
 
     KEYKPCOMMA = 121,
 
@@ -190,9 +186,6 @@ pub enum LinuxKeyCode {
     KEYCLOSECD = 160,
     KEYEJECTCD = 161,
     KEYEJECTCLOSECD = 162,
-    KEYNEXTSONG = 163,
-    KEYPLAYPAUSE = 164,
-    KEYPREVIOUSSONG = 165,
     KEYSTOPCD = 166,
     KEYRECORD = 167,
     KEYREWIND = 168,
@@ -228,7 +221,6 @@ pub enum LinuxKeyCode {
     KEYPAUSECD = 201,
     KEYPROG3 = 202,
     KEYPROG4 = 203,
-    KEYDASHBOARD = 204,
     KEYSUSPEND = 205,
     KEYCLOSE = 206,
     KEYPLAY = 207,
@@ -248,28 +240,39 @@ pub enum LinuxKeyCode {
     KEYSHOP = 221,
     KEYALTERASE = 222,
     KEYCANCEL = 223,
-    KEYBRIGHTNESSDOWN = 224,
-    KEYBRIGHTNESSUP = 225,
 
-    // F1 = KEYBRIGHTNESSDOWN
-    // F2 = KEYBRIGHTNESSUP
-    // F3 = 3
-    // F4 = 4
-    // F5 = KEYKBDILLUMDOWN
-    // F6 = KEYKBDILLUMUP
-    // F7 = KEYPREVIOUSSONG
-    // F8 = KEYPLAYPAUSE
-    // F9 = KEYNEXTSONG
-    // F10 = KEYMUTE
-    // F11 = KEYVOLUMEDOWN
-    // F12 = KEYVOLUMEUP
+    // Multi Media Keys
+
+    // KEYBRIGHTNESSDOWN = 224,
+    // KEYBRIGHTNESSUP = 225,
+    // KEYSCALE = 120,
+    // KEYDASHBOARD = 204,
+    // KEYKBDILLUMDOWN = 229,
+    // KEYKBDILLUMUP = 230,
+    // KEYPREVIOUSSONG = 165,
+    // KEYPLAYPAUSE = 164,
+    // KEYNEXTSONG = 163,
+    // KEYMUTE = 113,
+    // KEYVOLUMEDOWN = 114,
+    // KEYVOLUMEUP = 115,
+
+    KEYF1 = 224,
+    KEYF2 = 225,
+    KEYF3 = 120,
+    KEYF4 = 204,
+    KEYF5 = 229,
+    KEYF6 = 230,
+    KEYF7 = 165,
+    KEYF8 = 164,
+    KEYF9 = 163,
+    KEYF10 = 113,
+    KEYF11 = 114,
+    KEYF12 = 115,
 
     KEYMEDIA = 226,
 
     KEYSWITCHVIDEOMODE = 227,
     KEYKBDILLUMTOGGLE = 228,
-    KEYKBDILLUMDOWN = 229,
-    KEYKBDILLUMUP = 230,
 
     KEYSEND = 231,
     KEYREPLY = 232,
@@ -630,22 +633,23 @@ pub fn remove_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), E
 
 pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
     loop {
-        if keyboard_inputs.is_empty() {
-            continue;
-        }
-        
-        for keyboard_index in 0..keyboard_inputs.len() {
-            let keyboard_path = &keyboard_inputs[keyboard_index];
-            if Path::exists(Path::new(keyboard_path)) {
-                println!("Found new keyboard adding to pool, ({})", keyboard_path);
-                let keyboard = match OpenOptions::new().write(true).read(true).open(keyboard_path) {
+        for (keyboard_index, keyboard_path_str) in keyboard_inputs.clone().into_iter().enumerate() {
+            let mut keyboard_path = Path::new(&keyboard_path_str).to_path_buf();
+
+            if Path::exists(keyboard_path.as_path()) {
+                // println!("Found new keyboard adding to pool, ({})", &keyboard_path.to_string_lossy());
+                let keyboard = match OpenOptions::new().write(true).read(true).open(&keyboard_path) {
                     Ok(result) => result,
                     Err(_) => continue,
                 };
 
-                let keyboard_interface = Keyboard {
+                let mut keyboard_interface = Keyboard {
                     keyboard_device_file: Some(keyboard),
                 };
+
+                if let Err(_) = write_scancode_set(&mut keyboard_interface) {
+                    // println!("Warning failed to set scancode 2, ignoring. ({})", err)
+                }
 
                 keyboard_interfaces.push(keyboard_interface);
                 keyboard_inputs.remove(keyboard_index);
@@ -674,4 +678,26 @@ pub fn is_modifier_down(
     }
 
     false
+}
+
+// https://wiki.osdev.org/PS/2_Keyboard
+pub fn write_scancode_set(keyboard: &mut Keyboard) -> Result<(), Error> {
+    let keyboard_scancode_packet: [u8; 2] = [0xF0, 2];
+
+    if let Some(ref mut keyboard_data_buffer) = keyboard.keyboard_device_file {
+        match keyboard_data_buffer.write_all(&keyboard_scancode_packet) {
+            Ok(_) => {
+                match keyboard_data_buffer.flush() {
+                    Ok(_) => return Ok(()),
+                    Err(err) => return Err(err),
+                };
+            }
+            Err(err) => return Err(err),
+        };
+    }
+
+    Err(Error::new(
+        ErrorKind::Other,
+        String::from("Failed to set scancode 2 set!"),
+    ))
 }
