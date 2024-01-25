@@ -22,6 +22,7 @@ impl Default for Mouse {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct MouseState {
     pub left_button: bool,
     pub right_button: bool,
