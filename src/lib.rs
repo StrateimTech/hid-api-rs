@@ -132,7 +132,7 @@ pub fn stop_passthrough() {
                     };
                 }
             }
-            None => panic!("Failed to find gadget file while stopping"),
+            None => (),
         }
     }
 }
