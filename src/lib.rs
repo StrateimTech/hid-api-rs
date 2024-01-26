@@ -3,6 +3,7 @@ use std::io::BufWriter;
 use std::{fs::File, io, thread};
 
 use std::sync::RwLock;
+use std::time::Duration;
 
 use gadgets::keyboard::{self, Keyboard, KeyboardState};
 use gadgets::mouse::{self, Mouse};
@@ -47,6 +48,7 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
             Some(gadget_writer) => {
                 loop {
                     if MOUSE_INTERFACES.is_empty() {
+                        thread::sleep(Duration::from_millis(1));
                         continue;
                     }
 
@@ -77,6 +79,7 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
             Some(gadget_writer) => {
                 loop {
                     if KEYBOARD_INTERFACES.is_empty() {
+                        thread::sleep(Duration::from_millis(1));
                         continue;
                     }
 
