@@ -75,8 +75,12 @@ pub fn main() {
                         ..Default::default()
                     };
 
-                    // Pushing low priority will prioritise the physical device input before program input for continuity.
-                    mouse::push_mouse_event_low_priority(mouse_raw, mouse);
+                    // Inject directly into stream without updating mouse's real state
+                    // if let Ok(mut data_buffer) = mouse.mouse_data_buffer.w() {rite
+                    //     data_buffer.push(mouse_raw);
+                    // }
+
+                    mouse::push_mouse_event(mouse_raw, mouse);
                     continue;
                 }
             }
