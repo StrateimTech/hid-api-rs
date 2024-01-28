@@ -2,29 +2,32 @@ use num_enum::FromPrimitive;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Error, ErrorKind, Read, Write};
 use std::path::Path;
-use std::{fs::File, sync::RwLock};
+use std::{fs::File, sync::RwLock, thread};
 
 use std::fmt::{self, Debug};
 
 use std::str::FromStr;
+use std::time::Duration;
 use strum_macros::EnumString;
 
 use crate::hid;
 
 pub struct Keyboard {
+    // Option<File> may be redundant as check_keyboard() ensures File will always exist as it's a primary required component
     pub keyboard_device_file: Option<File>,
+    pub keyboard_path: String,
 }
 
 pub struct KeyboardState {
     pub keys_down: RwLock<Vec<i32>>,
-    pub modifiers_down: RwLock<Vec<i32>>
+    pub modifiers_down: RwLock<Vec<i32>>,
 }
 
 impl Default for KeyboardState {
     fn default() -> Self {
         KeyboardState {
             keys_down: RwLock::new(Vec::new()),
-            modifiers_down: RwLock::new(Vec::new())
+            modifiers_down: RwLock::new(Vec::new()),
         }
     }
 }
@@ -486,7 +489,7 @@ pub enum KeyCodeModifier {
     KEYRIGHTCTRL = 4,
     KEYRIGHTSHIFT = 5,
     KEYRIGHTALT = 6,
-    KEYRIGHTMET = 7
+    KEYRIGHTMETA = 7,
 }
 
 impl fmt::Display for KeyCodeModifier {
@@ -570,7 +573,7 @@ pub fn attempt_read(
                             match key_modifier {
                                 Some(modifier) => {
                                     return remove_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
-                                },
+                                }
                                 None => {
                                     if let Some(code) = usb_code {
                                         return remove_generic_down(code as i32, &global_keyboard_state.keys_down);
@@ -585,8 +588,8 @@ pub fn attempt_read(
         None => {
             return Err(Error::new(
                 ErrorKind::Other,
-                String::from("Failed find mouse device file!"),
-            ))
+                String::from("Failed to find keyboard device file!"),
+            ));
         }
     }
 
@@ -621,7 +624,7 @@ pub fn add_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), Erro
 
 pub fn remove_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), Error> {
     if let Ok(mut key_vec) = key_vec.write() {
-        key_vec.retain(|k| *k != (key as i32));
+        key_vec.retain(|k| *k != key);
         return Ok(());
     }
 
@@ -631,20 +634,30 @@ pub fn remove_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), E
     ))
 }
 
-pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
+pub fn check_keyboards(keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
     loop {
-        for (keyboard_index, keyboard_path_str) in keyboard_inputs.clone().into_iter().enumerate() {
-            let keyboard_path = Path::new(&keyboard_path_str).to_path_buf();
+        for keyboard_input in &keyboard_inputs {
+            if keyboard_interfaces.iter().any(|x| keyboard_inputs.contains(&x.keyboard_path)) {
+                thread::sleep(Duration::from_millis(1));
+                continue;
+            }
 
-            if Path::exists(keyboard_path.as_path()) {
+            let keyboard_path = Path::new(&keyboard_input);
+
+            if Path::exists(keyboard_path) {
                 // println!("Found new keyboard adding to pool, ({})", &keyboard_path.to_string_lossy());
-                let keyboard = match OpenOptions::new().write(true).read(true).open(&keyboard_path) {
+                let keyboard = match OpenOptions::new()
+                    .write(true)
+                    .read(true)
+                    .open(keyboard_path)
+                {
                     Ok(result) => result,
                     Err(_) => continue,
                 };
 
                 let mut keyboard_interface = Keyboard {
                     keyboard_device_file: Some(keyboard),
+                    keyboard_path: keyboard_input.clone(),
                 };
 
                 if let Err(_) = write_scancode_set(&mut keyboard_interface) {
@@ -652,7 +665,6 @@ pub fn check_keyboards(mut keyboard_inputs: Vec<String>, keyboard_interfaces: &'
                 }
 
                 keyboard_interfaces.push(keyboard_interface);
-                keyboard_inputs.remove(keyboard_index);
             }
         }
     }
@@ -663,7 +675,7 @@ pub fn is_key_down(
     global_keyboard_state: &&'static mut KeyboardState,
 ) -> bool {
     if let Ok(keyboard_state) = global_keyboard_state.keys_down.try_read() {
-        return keyboard_state.contains(&(key as i32))
+        return keyboard_state.contains(&(key as i32));
     }
 
     false
@@ -674,7 +686,7 @@ pub fn is_modifier_down(
     global_keyboard_state: &&'static mut KeyboardState,
 ) -> bool {
     if let Ok(modifiers_down) = global_keyboard_state.modifiers_down.try_read() {
-        return modifiers_down.contains(&(modifier as i32))
+        return modifiers_down.contains(&(modifier as i32));
     }
 
     false

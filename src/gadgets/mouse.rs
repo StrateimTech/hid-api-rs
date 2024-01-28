@@ -3,23 +3,17 @@ use std::path::Path;
 
 use std::io::{BufWriter, Error, ErrorKind, Read, Write};
 use std::sync::RwLock;
+use std::thread;
+use std::time::Duration;
 
 use crate::{hid, HidMouse};
 
 pub struct Mouse {
     pub mouse_data_buffer: RwLock<Vec<MouseRaw>>,
     pub mouse_state: RwLock<MouseState>,
+    // Option<File> may be redundant as check_mouse() ensures File will always exist as it's a primary required component
     pub mouse_device_file: Option<File>,
-}
-
-impl Default for Mouse {
-    fn default() -> Self {
-        Mouse {
-            mouse_data_buffer: RwLock::new(Vec::new()),
-            mouse_state: RwLock::from(MouseState::default()),
-            mouse_device_file: None,
-        }
-    }
+    pub mouse_path: String,
 }
 
 #[derive(Copy, Clone)]
@@ -156,8 +150,8 @@ pub fn attempt_read(mouse: &mut Mouse) -> Result<(), Error> {
         None => {
             return Err(Error::new(
                 ErrorKind::Other,
-                String::from("Failed find mouse device file!"),
-            ))
+                String::from("Failed to find mouse device file!"),
+            ));
         }
     }
 }
@@ -218,27 +212,31 @@ pub fn push_mouse_event_low_priority(raw_data: MouseRaw, mouse: &mut Mouse) {
     }
 }
 
-pub fn check_mouses(mut mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static mut Vec<Mouse>) {
+pub fn check_mouses(mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static mut Vec<Mouse>) {
     loop {
-        if mouse_inputs.is_empty() {
-            continue;
-        }
+        for mouse_input in &mouse_inputs {
+            if mouse_interfaces.iter().any(|x| mouse_inputs.iter().any(|y| y.mouse_path == x.mouse_path)) {
+                thread::sleep(Duration::from_millis(1));
+                continue;
+            }
 
-        for mouse_index in 0..mouse_inputs.len() {
-            let mouse_path = &mouse_inputs[mouse_index];
-            if Path::exists(Path::new(&mouse_path.mouse_path)) {
+            let mouse_path = Path::new(&mouse_input.mouse_path);
+            if Path::exists(mouse_path) {
+                // println!("Found new mouse adding to pool, ({})", &mouse_path.to_string_lossy());
                 let mouse = match OpenOptions::new()
                     .write(true)
                     .read(true)
-                    .open(&mouse_path.mouse_path)
+                    .open(mouse_path)
                 {
                     Ok(result) => result,
                     Err(_) => continue,
                 };
 
                 let mut mouse_interface = Mouse {
+                    mouse_data_buffer: RwLock::new(Vec::new()),
+                    mouse_state: RwLock::from(MouseState::default()),
                     mouse_device_file: Some(mouse),
-                    ..Default::default()
+                    mouse_path: mouse_input.mouse_path.clone(),
                 };
 
                 if let Err(err) = write_magic_scroll_feature(&mut mouse_interface, true) {
@@ -246,7 +244,6 @@ pub fn check_mouses(mut mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static 
                 }
 
                 mouse_interfaces.push(mouse_interface);
-                mouse_inputs.remove(mouse_index);
             }
         }
     }
@@ -272,7 +269,7 @@ pub fn attempt_flush(
                     "Failed to read from mouse data buffer poisoned! ({})",
                     err
                 )),
-            ))
+            ));
         }
     }
 
