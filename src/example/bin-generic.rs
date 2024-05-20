@@ -1,14 +1,15 @@
-use hid_api_rs::{
-    gadgets::{
-        keyboard::{self, UsbKeyCode},
-        mouse::{self, MouseRaw},
-    },
-    HidMouse, HidSpecification,
-};
+extern crate hid_api_rs;
+
 use std::{io, thread};
+use std::io::BufWriter;
+use std::sync::Mutex;
 use std::time::Duration;
 
-extern crate hid_api_rs;
+use hid_api_rs::{gadgets::{
+    keyboard::{self, UsbKeyCode},
+    mouse::{self, MouseRaw},
+}, hid, HidMouse, HidSpecification};
+
 
 pub fn main() {
     let specification: HidSpecification = HidSpecification {
@@ -21,14 +22,23 @@ pub fn main() {
     };
 
     thread::spawn(|| {
-        if let Err(err) = hid_api_rs::start_passthrough(specification) {
+        if let Err(err) = hid_api_rs::start_pass_through(specification) {
             panic!("Failed to start pass through! {}", err)
         };
     });
 
     thread::spawn(|| {
-        let mut switcher: bool = false;
         let mut key_switch: bool = false;
+
+        let gadget_file = match hid::open_gadget_device(String::from("/dev/hidg1")) {
+            Ok(gadget_device) => gadget_device,
+            Err(_) => {
+                println!("Failed to open gadget device");
+                return
+            }
+        };
+
+        let gadget_writer = Mutex::new(BufWriter::new(gadget_file));
 
         loop {
             let keyboard_state = hid_api_rs::get_keyboard();
@@ -44,48 +54,30 @@ pub fn main() {
             // println!("Total mouses in circulation: {}", mouses.len());
             for mouse_index in 0..mouses.len() {
                 let mouse = &mut mouses[mouse_index];
+                let mouse_state = mouse.get_state().clone();
 
-                let mut left: bool = false;
-                let mut middle: bool = false;
-
-                if let Ok(mouse_state) = mouse.mouse_state.try_read() {
-                    left = mouse_state.left_button;
-                    middle = mouse_state.middle_button;
-                }
+                let left: bool = mouse_state.left_button;
+                let middle: bool = mouse_state.middle_button;
 
                 if middle {
-                    if let Ok(mut mouse_state) = mouse.mouse_state.try_write() {
-                        if switcher == false {
-                            mouse_state.invert_x = true;
-                            mouse_state.invert_y = true;
-                            mouse_state.invert_wheel = true;
-                        } else {
-                            mouse_state.invert_x = false;
-                            mouse_state.invert_y = false;
-                            mouse_state.invert_wheel = false;
-                        }
-                        switcher = !switcher;
-                    }
+                    mouse.mouse_settings.invert_x = !mouse.mouse_settings.invert_x;
+                    mouse.mouse_settings.invert_y = !mouse.mouse_settings.invert_y;
+                    mouse.mouse_settings.invert_wheel = !mouse.mouse_settings.invert_wheel;
                 }
 
                 if left {
                     let mouse_raw = MouseRaw {
-                        left_button: Some(false),
                         relative_x: 25,
                         ..Default::default()
                     };
 
-                    // Inject directly into stream without updating mouse's real state
-                    // if let Ok(mut data_buffer) = mouse.mouse_data_buffer.w() {rite
-                    //     data_buffer.push(mouse_raw);
-                    // }
-
-                    mouse::push_mouse_event(mouse_raw, mouse);
+                    if let Ok(mut gadget_writer) = gadget_writer.lock() {
+                        mouse::push_mouse_event(mouse_raw, Some(mouse), &mut gadget_writer);
+                    }
                     continue;
                 }
             }
 
-            // You should sleep as it allows the library to access mouse_state for a brief period reducing or removing device stutters.
             thread::sleep(Duration::from_millis(1));
         }
     });
@@ -99,7 +91,7 @@ pub fn main() {
             .expect("Failed to read line");
         if !answer.is_empty() {
             println!("Stopping");
-            hid_api_rs::stop_passthrough();
+            hid_api_rs::stop_pass_through();
 
             break;
         }

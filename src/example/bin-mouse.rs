@@ -1,12 +1,10 @@
-use hid_api_rs::{
-    HidMouse, HidSpecification,
-};
-use std::{io, thread};
-
 extern crate hid_api_rs;
 
+use std::{io, thread};
 use std::env;
 use std::time::Duration;
+
+use hid_api_rs::{HidMouse, HidSpecification};
 
 pub fn main() {
     env::set_var("RUST_BACKTRACE", "full");
@@ -21,21 +19,29 @@ pub fn main() {
     };
 
     thread::spawn(|| {
-        if let Err(err) = hid_api_rs::start_passthrough(specification) {
+        if let Err(err) = hid_api_rs::start_pass_through(specification) {
             panic!("Failed to start pass through! {}", err)
         };
     });
 
-    thread::spawn(|| {
+    static mut BREAK_LOCAL_THREAD: bool = false;
+    thread::spawn(|| unsafe {
         loop {
+            if BREAK_LOCAL_THREAD {
+                return;
+            }
+
             let mouses = hid_api_rs::get_mouses();
 
             for mouse_index in 0..mouses.len() {
                 let mouse = &mut mouses[mouse_index];
+                let mouse_state = mouse.get_state().clone();
 
-                if let Ok(mouse_state) = mouse.mouse_state.try_read() {
-                    println!("Left: {}, Right: {}, Middle: {}, Side-4: {}, Side-5: {}", mouse_state.left_button, mouse_state.right_button, mouse_state.middle_button, mouse_state.four_button, mouse_state.five_button);
+                if mouse_state.middle_button {
+                    mouse.mouse_settings.invert_y = !mouse.mouse_settings.invert_y;
                 }
+
+                println!("Left: {}, Right: {}, Middle: {}, Side-4: {}, Side-5: {}", mouse_state.left_button, mouse_state.right_button, mouse_state.middle_button, mouse_state.four_button, mouse_state.five_button);
             }
 
             thread::sleep(Duration::from_millis(500))
@@ -49,9 +55,12 @@ pub fn main() {
             .read_line(&mut answer)
             .ok()
             .expect("Failed to read line");
+
         if !answer.is_empty() {
             println!("Stopping");
-            hid_api_rs::stop_passthrough();
+
+            unsafe { BREAK_LOCAL_THREAD = true; }
+            hid_api_rs::stop_pass_through();
 
             break;
         }
