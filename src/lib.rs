@@ -1,12 +1,16 @@
 use core::panic;
-use std::io::BufWriter;
 use std::{fs::File, io, thread};
+use std::io::BufWriter;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use once_cell::sync::Lazy;
+
 use gadgets::keyboard::{self, Keyboard, KeyboardState};
 use gadgets::mouse::{self, Mouse};
+
+use crate::mouse::MouseRaw;
 
 pub mod gadgets;
 pub mod hid;
@@ -23,18 +27,17 @@ pub struct HidMouse {
     pub mouse_poll_rate: Option<i32>,
 }
 
-use once_cell::sync::Lazy;
-
-use crate::mouse::MouseRaw;
-
 static mut GADGET_WRITER: Option<Arc<Mutex<BufWriter<&mut File>>>> = None;
 
-static mut MOUSE_INTERFACES: Vec<Mouse> = Vec::new();
+static mut MOUSE_INTERFACES: Lazy<Vec<Mouse>> = Lazy::new(|| Vec::new());
+static mut MOUSE_READING: bool = true;
+
 static mut KEYBOARD_INTERFACES: Vec<Keyboard> = Vec::new();
+static mut KEYBOARD_READING: bool = true;
 
 static mut GLOBAL_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
 
-pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Error> {
+pub fn start_pass_through(specification: HidSpecification) -> Result<(), io::Error> {
     let gadget_file = match hid::open_gadget_device(specification.gadget_output) {
         Ok(gadget_device) => gadget_device,
         Err(err) => return Err(err),
@@ -50,34 +53,34 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
                 let mouse_gadget_writer = Arc::clone(gadget_writer);
                 thread::spawn(move || {
                     loop {
+                        if !MOUSE_READING {
+                            return;
+                        }
+
                         if MOUSE_INTERFACES.is_empty() {
                             thread::sleep(Duration::from_millis(1));
                             continue;
                         }
 
                         for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
-                            let mut mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
-                            thread::scope(|scope| {
-                                let scoped_mouse = &mut mouse;
-                                scope.spawn(move || {
-                                    if let Err(_) = mouse::attempt_read(*scoped_mouse) {
-                                        // println!("Failed to reach mouse, ({}). Removing from interface list!", err);
-                                        MOUSE_INTERFACES.remove(mouse_interface_index);
-                                    };
-                                });
-                            });
+                            let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
 
                             if let Ok(mut writer) = mouse_gadget_writer.lock() {
-                                let _ = mouse::attempt_flush(&mut mouse, &mut writer);
+                                if let Err(_) = mouse::attempt_read(mouse, &mut writer) {
+                                    MOUSE_INTERFACES.remove(mouse_interface_index);
+                                };
                             }
                         }
                     }
                 });
 
                 let keyboard_gadget_writer = Arc::clone(gadget_writer);
-
                 thread::spawn(move || {
                     loop {
+                        if !KEYBOARD_READING {
+                            break;
+                        }
+
                         if KEYBOARD_INTERFACES.is_empty() {
                             thread::sleep(Duration::from_millis(1));
                             continue;
@@ -111,20 +114,18 @@ pub fn start_passthrough(specification: HidSpecification) -> Result<(), io::Erro
     }
 }
 
-pub fn stop_passthrough() {
+pub fn stop_pass_through() {
     unsafe {
+        MOUSE_READING = false;
+        KEYBOARD_READING = false;
+
         match &GADGET_WRITER {
             Some(gadget_writer) => {
                 if let Ok(mut writer) = gadget_writer.lock() {
-                    for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
-                        let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
-                        mouse::push_mouse_event(MouseRaw::default(), mouse);
+                    MOUSE_INTERFACES.clear();
+                    mouse::push_mouse_event(MouseRaw::default(), None, &mut writer);
 
-                        if let Err(_) = mouse::attempt_flush(mouse, &mut writer) {
-                            panic!("failed to flush mouse")
-                        };
-                    }
-
+                    KEYBOARD_INTERFACES.clear();
                     static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
                         Lazy::new(|| KeyboardState::default());
                     if let Err(err) =
@@ -156,7 +157,7 @@ fn start_watcher_threads(
     }
 }
 
-pub fn get_mouses() -> &'static mut Vec<Mouse> {
+pub fn get_mouses() -> &'static mut Lazy<Vec<Mouse>, fn() -> Vec<Mouse>> {
     unsafe { return &mut MOUSE_INTERFACES; }
 }
 
