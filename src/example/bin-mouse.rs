@@ -1,6 +1,6 @@
 extern crate hid_api_rs;
 
-use std::{io, thread};
+use std::{io, process, thread};
 use std::env;
 use std::time::Duration;
 
@@ -25,10 +25,12 @@ pub fn main() {
     });
 
     static mut BREAK_LOCAL_THREAD: bool = false;
-    thread::spawn(|| unsafe {
+    thread::spawn(|| {
         loop {
-            if BREAK_LOCAL_THREAD {
-                return;
+            unsafe {
+                if BREAK_LOCAL_THREAD {
+                    return;
+                }
             }
 
             let mouses = hid_api_rs::get_mouses();
@@ -60,7 +62,10 @@ pub fn main() {
             println!("Stopping");
 
             unsafe { BREAK_LOCAL_THREAD = true; }
-            hid_api_rs::stop_pass_through();
+            if let Err(error) = hid_api_rs::stop_pass_through() {
+                println!("Error occurred while stopping pass through: {error}");
+                process::abort();
+            };
 
             break;
         }

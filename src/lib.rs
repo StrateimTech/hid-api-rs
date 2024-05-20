@@ -1,6 +1,6 @@
 use core::panic;
 use std::{fs::File, io, thread};
-use std::io::BufWriter;
+use std::io::{BufWriter, Error, ErrorKind};
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -114,29 +114,44 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), io::Err
     }
 }
 
-pub fn stop_pass_through() {
+pub fn stop_pass_through() -> Result<(), Error> {
     unsafe {
         MOUSE_READING = false;
         KEYBOARD_READING = false;
 
-        match &GADGET_WRITER {
+        return match &GADGET_WRITER {
             Some(gadget_writer) => {
-                if let Ok(mut writer) = gadget_writer.lock() {
-                    MOUSE_INTERFACES.clear();
-                    mouse::push_mouse_event(MouseRaw::default(), None, &mut writer);
+                match gadget_writer.lock() {
+                    Ok(mut writer) => {
+                        MOUSE_INTERFACES.clear();
+                        if let Err(err) = mouse::push_mouse_event(MouseRaw::default(), None, &mut writer) {
+                            return Err(err);
+                        }
 
-                    KEYBOARD_INTERFACES.clear();
-                    static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
-                        Lazy::new(|| KeyboardState::default());
-                    if let Err(err) =
-                        keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut writer)
-                    {
-                        panic!("failed to flush keyboard, ({})", err)
-                    };
+                        KEYBOARD_INTERFACES.clear();
+                        static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
+                            Lazy::new(|| KeyboardState::default());
+                        if let Err(err) =
+                            keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut writer)
+                        {
+                            panic!("failed to flush keyboard, ({})", err)
+                        };
+
+                        Ok(())
+                    },
+                    Err(_) => {
+                        Err(Error::new(
+                            ErrorKind::Other,
+                            String::from("failed to lock gadget writer"),
+                        ))
+                    }
                 }
-            }
-            None => ()
-        }
+            },
+            None => Err(Error::new(
+                ErrorKind::Other,
+                String::from("could not find gadget writer when unwrapping"),
+            ))
+        };
     }
 }
 

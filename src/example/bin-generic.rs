@@ -1,6 +1,6 @@
 extern crate hid_api_rs;
 
-use std::{io, thread};
+use std::{io, process, thread};
 use std::io::BufWriter;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -27,6 +27,7 @@ pub fn main() {
         };
     });
 
+    static mut BREAK_LOCAL_THREAD: bool = false;
     thread::spawn(|| {
         let mut key_switch: bool = false;
 
@@ -41,6 +42,12 @@ pub fn main() {
         let gadget_writer = Mutex::new(BufWriter::new(gadget_file));
 
         loop {
+            unsafe {
+                if BREAK_LOCAL_THREAD {
+                    return;
+                }
+            }
+
             let keyboard_state = hid_api_rs::get_keyboard();
             if keyboard::is_key_down(UsbKeyCode::KEYY, &keyboard_state) {
                 key_switch = !key_switch;
@@ -72,7 +79,9 @@ pub fn main() {
                     };
 
                     if let Ok(mut gadget_writer) = gadget_writer.lock() {
-                        mouse::push_mouse_event(mouse_raw, Some(mouse), &mut gadget_writer);
+                        if let Err(error) = mouse::push_mouse_event(mouse_raw, Some(mouse), &mut gadget_writer) {
+                            println!("Failed to push mouse event: {error}");
+                        };
                     }
                     continue;
                 }
@@ -91,7 +100,12 @@ pub fn main() {
             .expect("Failed to read line");
         if !answer.is_empty() {
             println!("Stopping");
-            hid_api_rs::stop_pass_through();
+
+            unsafe { BREAK_LOCAL_THREAD = true; }
+            if let Err(error) = hid_api_rs::stop_pass_through() {
+                println!("Error occurred while stopping pass through: {error}");
+                process::abort();
+            };
 
             break;
         }

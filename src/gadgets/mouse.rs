@@ -143,7 +143,6 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
         relative_x *= mouse.mouse_settings.sensitivity_multiplier;
         relative_y *= mouse.mouse_settings.sensitivity_multiplier;
 
-
         let raw_mouse = MouseRaw {
             left_button,
             right_button,
@@ -155,12 +154,12 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
             relative_wheel,
         };
 
-        push_mouse_event(raw_mouse, Some(mouse), gadget_writer);
+        return push_mouse_event(raw_mouse, Some(mouse), gadget_writer);
     }
     return Ok(());
 }
 
-pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_writer: &mut BufWriter<&mut File>) {
+pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
     if let Some(mouse) = mouse {
         let new_state = MouseState {
             left_button: raw_data.left_button,
@@ -172,9 +171,7 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_wr
         mouse.mouse_state = new_state;
     }
 
-    if let Err(err) = hid::write_mouse(&raw_data, gadget_writer) {
-        println!("error write mouse: ({err})");
-    }
+    hid::write_mouse(&raw_data, gadget_writer)
 }
 
 pub fn check_mouses(mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static mut Lazy<Vec<Mouse>>) {
