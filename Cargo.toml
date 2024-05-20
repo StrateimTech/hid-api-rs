@@ -30,3 +30,7 @@ path = "src/example/bin-generic.rs"
 [[bin]]
 name = "hid_api_example_mouse"
 path = "src/example/bin-mouse.rs"
+
+[[bin]]
+name = "hid_api_example_injection"
+path = "src/example/bin-injection.rs"
