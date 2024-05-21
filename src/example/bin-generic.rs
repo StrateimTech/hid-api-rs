@@ -6,10 +6,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use hid_api_rs::{gadgets::{
-    keyboard::{self, UsbKeyCode},
+    keyboard::{self, UsbKeyCode, KeyCodeModifier},
     mouse::{self, MouseRaw},
 }, hid, HidMouse, HidSpecification};
-
 
 pub fn main() {
     let specification: HidSpecification = HidSpecification {
@@ -53,7 +52,7 @@ pub fn main() {
                 key_switch = !key_switch;
             }
 
-            if keyboard::is_modifier_down(keyboard::KeyCodeModifier::KEYLEFTMETA, &keyboard_state) {
+            if keyboard::is_modifier_down(KeyCodeModifier::KEYLEFTMETA, &keyboard_state) {
                 println!("Meta key down!");
             }
 

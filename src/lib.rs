@@ -43,7 +43,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), io::Err
         Err(err) => return Err(err),
     };
 
-    start_watcher_threads(specification.mouse_inputs, specification.keyboard_inputs);
+    start_hot_reload(specification.mouse_inputs, specification.keyboard_inputs);
 
     unsafe {
         GADGET_WRITER = Some(Arc::new(Mutex::new(BufWriter::new(gadget_file))));
@@ -138,7 +138,7 @@ pub fn stop_pass_through() -> Result<(), Error> {
                         };
 
                         Ok(())
-                    },
+                    }
                     Err(_) => {
                         Err(Error::new(
                             ErrorKind::Other,
@@ -146,7 +146,7 @@ pub fn stop_pass_through() -> Result<(), Error> {
                         ))
                     }
                 }
-            },
+            }
             None => Err(Error::new(
                 ErrorKind::Other,
                 String::from("could not find gadget writer when unwrapping"),
@@ -155,7 +155,7 @@ pub fn stop_pass_through() -> Result<(), Error> {
     }
 }
 
-fn start_watcher_threads(
+fn start_hot_reload(
     mouse_inputs: Option<Vec<HidMouse>>,
     keyboard_inputs: Option<Vec<String>>,
 ) {

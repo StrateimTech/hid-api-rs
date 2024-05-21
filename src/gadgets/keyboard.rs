@@ -32,9 +32,10 @@ impl Default for KeyboardState {
     }
 }
 
+// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
 #[derive(FromPrimitive, Debug, Clone, Copy)]
 #[repr(i16)]
-pub enum LinuxKeyCode {
+enum LinuxKeyCode {
     #[num_enum(default)]
     KEYRESERVED = 0,
     KEYESC = 1,
@@ -304,6 +305,7 @@ impl fmt::Display for LinuxKeyCode {
     }
 }
 
+// USB Hid Key Codes
 #[derive(FromPrimitive, Clone, Copy, EnumString, Debug)]
 #[repr(i16)]
 pub enum UsbKeyCode {
@@ -453,7 +455,7 @@ impl fmt::Display for UsbKeyCode {
 
 #[derive(PartialEq, FromPrimitive, Debug)]
 #[repr(i16)]
-pub enum EventType {
+enum EventType {
     #[num_enum(default)]
     EvSyn,
     EvKey,
@@ -471,7 +473,7 @@ pub enum EventType {
 
 #[derive(FromPrimitive, Debug)]
 #[repr(i32)]
-pub enum KeyState {
+enum KeyState {
     KeyUp,
     #[num_enum(default)]
     KeyDown,
