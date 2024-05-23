@@ -1,8 +1,5 @@
-use core::panic;
-use std::{fs::File, io, thread};
 use std::io::{BufWriter, Error, ErrorKind};
-
-use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 use once_cell::sync::Lazy;
@@ -10,11 +7,12 @@ use once_cell::sync::Lazy;
 use gadgets::keyboard::{self, Keyboard, KeyboardState};
 use gadgets::mouse::{self, Mouse};
 
-use crate::mouse::MouseRaw;
+use crate::gadgets::mouse::MouseRaw;
 
 pub mod gadgets;
 pub mod hid;
 
+#[derive(Clone)]
 pub struct HidSpecification {
     pub mouse_inputs: Option<Vec<HidMouse>>,
     pub keyboard_inputs: Option<Vec<String>>,
@@ -27,8 +25,7 @@ pub struct HidMouse {
     pub mouse_poll_rate: Option<i32>,
 }
 
-static mut GADGET_WRITER: Option<Arc<Mutex<BufWriter<&mut File>>>> = None;
-
+static mut HID_SPEC: Option<HidSpecification> = None;
 static mut MOUSE_INTERFACES: Lazy<Vec<Mouse>> = Lazy::new(|| Vec::new());
 static mut MOUSE_READING: bool = true;
 
@@ -37,8 +34,12 @@ static mut KEYBOARD_READING: bool = true;
 
 static mut GLOBAL_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
 
-pub fn start_pass_through(specification: HidSpecification) -> Result<(), io::Error> {
-    let gadget_file = match hid::open_gadget_device(specification.gadget_output) {
+pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> {
+    unsafe {
+        HID_SPEC = Some(specification.clone());
+    }
+
+    let gadget_device_keyboard = match hid::open_gadget_device(specification.gadget_output.clone()) {
         Ok(gadget_device) => gadget_device,
         Err(err) => return Err(err),
     };
@@ -46,72 +47,99 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), io::Err
     start_hot_reload(specification.mouse_inputs, specification.keyboard_inputs);
 
     unsafe {
-        GADGET_WRITER = Some(Arc::new(Mutex::new(BufWriter::new(gadget_file))));
+        thread::spawn(move || {
+            static mut MOUSE_THREADS: Vec<String> = Vec::new();
+            loop {
+                if !MOUSE_READING {
+                    return;
+                }
 
-        match &GADGET_WRITER {
-            Some(gadget_writer) => {
-                let mouse_gadget_writer = Arc::clone(gadget_writer);
-                thread::spawn(move || {
-                    loop {
-                        if !MOUSE_READING {
-                            return;
-                        }
+                if MOUSE_INTERFACES.is_empty() {
+                    thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
 
-                        if MOUSE_INTERFACES.is_empty() {
-                            thread::sleep(Duration::from_millis(1));
-                            continue;
-                        }
+                for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
+                    let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
 
-                        for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
-                            let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
+                    if !MOUSE_THREADS.contains(&mouse.mouse_path) || MOUSE_THREADS.is_empty() {
+                        let gadget_mouse = match hid::open_gadget_device(specification.gadget_output.clone()) {
+                            Ok(gadget_device) => gadget_device,
+                            Err(_) => continue,
+                        };
 
-                            if let Ok(mut writer) = mouse_gadget_writer.lock() {
-                                if let Err(_) = mouse::attempt_read(mouse, &mut writer) {
-                                    MOUSE_INTERFACES.remove(mouse_interface_index);
+                        MOUSE_THREADS.push(mouse.mouse_path.clone());
+
+                        let mut mouse_writer = BufWriter::new(gadget_mouse);
+                        thread::spawn(move || {
+                            let mouse_index = mouse_interface_index.clone();
+                            loop {
+                                if !MOUSE_READING {
+                                    break;
+                                }
+
+                                if let Err(_) = mouse::attempt_read(mouse, &mut mouse_writer) {
+                                    MOUSE_INTERFACES.remove(mouse_index);
+                                    MOUSE_THREADS.remove(mouse_index);
+
+                                    break;
                                 };
                             }
-                        }
+                        });
                     }
-                });
-
-                let keyboard_gadget_writer = Arc::clone(gadget_writer);
-                thread::spawn(move || {
-                    loop {
-                        if !KEYBOARD_READING {
-                            break;
-                        }
-
-                        if KEYBOARD_INTERFACES.is_empty() {
-                            thread::sleep(Duration::from_millis(1));
-                            continue;
-                        }
-
-                        for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
-                            let mut keyboard: &mut Keyboard =
-                                &mut KEYBOARD_INTERFACES[keyboard_interface_index];
-
-                            thread::scope(|scope| {
-                                let scoped_keyboard = &mut keyboard;
-                                scope.spawn(move || {
-                                    if let Err(_) = keyboard::attempt_read(*scoped_keyboard, &mut GLOBAL_KEYBOARD_STATE) {
-                                        // println!("Failed to read keyboard, ({}). Removing from interface list!", err);
-                                        KEYBOARD_INTERFACES.remove(keyboard_interface_index);
-                                    };
-                                });
-                            });
-                        }
-
-                        if let Ok(mut writer) = keyboard_gadget_writer.lock() {
-                            let _ = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut writer);
-                        }
-                    }
-                });
-
-                return Ok(());
+                }
             }
-            None => panic!("No gadget writer.")
-        }
+        });
+
+        thread::spawn(move || {
+            let mut keyboard_writer = BufWriter::new(gadget_device_keyboard);
+
+            static mut KEYBOARD_THREADS: Vec<String> = Vec::new();
+            loop {
+                if !KEYBOARD_READING {
+                    break;
+                }
+
+                if KEYBOARD_INTERFACES.is_empty() {
+                    thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+
+                for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
+                    let keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
+
+                    if !KEYBOARD_THREADS.contains(&keyboard.keyboard_path) || KEYBOARD_THREADS.is_empty() {
+                        KEYBOARD_THREADS.push(keyboard.keyboard_path.clone());
+
+                        thread::spawn(move || {
+                            let keyboard_index = keyboard_interface_index.clone();
+
+                            loop {
+                                if !KEYBOARD_READING {
+                                    break;
+                                }
+
+                                if let Err(err) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
+                                    println!("Failed to read keyboard, ({}). Removing from interface list!", err);
+
+                                    KEYBOARD_INTERFACES.remove(keyboard_index);
+                                    KEYBOARD_THREADS.remove(keyboard_index);
+
+                                    break;
+                                };
+                            }
+                        });
+                    }
+                }
+
+                if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut keyboard_writer) {
+                    println!("Failed to flush keyboard state: {err}")
+                }
+            }
+        });
     }
+
+    Ok(())
 }
 
 pub fn stop_pass_through() -> Result<(), Error> {
@@ -119,37 +147,34 @@ pub fn stop_pass_through() -> Result<(), Error> {
         MOUSE_READING = false;
         KEYBOARD_READING = false;
 
-        return match &GADGET_WRITER {
-            Some(gadget_writer) => {
-                match gadget_writer.lock() {
-                    Ok(mut writer) => {
-                        MOUSE_INTERFACES.clear();
-                        if let Err(err) = mouse::push_mouse_event(MouseRaw::default(), None, &mut writer) {
-                            return Err(err);
-                        }
+        return match &HID_SPEC {
+            Some(spec) => {
+                let gadget_device = match hid::open_gadget_device(spec.gadget_output.clone()) {
+                    Ok(gadget_device) => gadget_device,
+                    Err(err) => return Err(err),
+                };
 
-                        KEYBOARD_INTERFACES.clear();
-                        static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
-                            Lazy::new(|| KeyboardState::default());
-                        if let Err(err) =
-                            keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut writer)
-                        {
-                            panic!("failed to flush keyboard, ({})", err)
-                        };
+                let mut gadget_writer = BufWriter::new(gadget_device);
 
-                        Ok(())
-                    }
-                    Err(_) => {
-                        Err(Error::new(
-                            ErrorKind::Other,
-                            String::from("failed to lock gadget writer"),
-                        ))
-                    }
+                MOUSE_INTERFACES.clear();
+                if let Err(err) = mouse::push_mouse_event(MouseRaw::default(), None, &mut gadget_writer) {
+                    return Err(err);
                 }
+
+                KEYBOARD_INTERFACES.clear();
+                static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
+                    Lazy::new(|| KeyboardState::default());
+                if let Err(err) =
+                    keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut gadget_writer)
+                {
+                    panic!("failed to flush keyboard, ({})", err)
+                };
+
+                Ok(())
             }
             None => Err(Error::new(
                 ErrorKind::Other,
-                String::from("could not find gadget writer when unwrapping"),
+                String::from("Hid specification not defined cannot open gadget device"),
             ))
         };
     }
@@ -160,15 +185,31 @@ fn start_hot_reload(
     keyboard_inputs: Option<Vec<String>>,
 ) {
     if let Some(mouse_inputs) = mouse_inputs {
-        thread::spawn(move || unsafe {
-            mouse::check_mouses(mouse_inputs, &mut MOUSE_INTERFACES);
-        });
+        if !mouse_inputs.is_empty() {
+            thread::spawn(move || unsafe {
+                loop {
+                    if !MOUSE_READING {
+                        break;
+                    }
+
+                    mouse::check_mouses(&mouse_inputs, &mut MOUSE_INTERFACES);
+                }
+            });
+        }
     }
 
     if let Some(keyboard_inputs) = keyboard_inputs {
-        thread::spawn(move || unsafe {
-            keyboard::check_keyboards(keyboard_inputs, &mut KEYBOARD_INTERFACES);
-        });
+        if !keyboard_inputs.is_empty() {
+            thread::spawn(move || unsafe {
+                loop {
+                    if !KEYBOARD_READING {
+                        break;
+                    }
+
+                    keyboard::check_keyboards(&keyboard_inputs, &mut KEYBOARD_INTERFACES);
+                }
+            });
+        }
     }
 }
 
