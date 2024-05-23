@@ -1,20 +1,18 @@
-use num_enum::FromPrimitive;
+use std::{fs::File, sync::RwLock, thread};
+use std::fmt::{self, Debug};
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Error, ErrorKind, Read, Write};
 use std::path::Path;
-use std::{fs::File, sync::RwLock, thread};
-
-use std::fmt::{self, Debug};
-
 use std::str::FromStr;
 use std::time::Duration;
+
+use num_enum::FromPrimitive;
 use strum_macros::EnumString;
 
 use crate::hid;
 
 pub struct Keyboard {
-    // Option<File> may be redundant as check_keyboard() ensures File will always exist as it's a primary required component
-    pub keyboard_device_file: Option<File>,
+    pub keyboard_device_file: File,
     pub keyboard_path: String,
 }
 
@@ -500,98 +498,82 @@ impl fmt::Display for KeyCodeModifier {
     }
 }
 
+#[cfg(target_pointer_width = "64")]
+const BUFFER_LENGTH: usize = 24;
+
+#[cfg(target_pointer_width = "32")]
+const BUFFER_LENGTH: usize = 12;
+
 pub fn attempt_read(
     keyboard: &mut Keyboard,
     global_keyboard_state: &'static mut KeyboardState,
 ) -> Result<(), Error> {
-    const BUFFER_LENGTH: usize = 16;
+    let mut keyboard_buffer = [0u8; BUFFER_LENGTH];
 
-    match keyboard.keyboard_device_file {
-        Some(ref mut keyboard_file) => {
-            let mut keyboard_buffer = [0u8; BUFFER_LENGTH];
+    let keyboard_read_length = match keyboard.keyboard_device_file.read(&mut keyboard_buffer) {
+        Ok(result) => result,
+        Err(err) => {
+            return Err(err);
+        }
+    };
 
-            let keyboard_read_length = match keyboard_file.read(&mut keyboard_buffer) {
-                Ok(result) => result,
-                Err(err) => return Err(err),
-            };
+    if keyboard_read_length >= BUFFER_LENGTH {
+        let mut offset = match BUFFER_LENGTH {
+            24 => 16,
+            12 => 8,
+            _ => 8,
+        };
 
-            if keyboard_read_length >= BUFFER_LENGTH {
-                let key_type = i16::from_ne_bytes([keyboard_buffer[8], keyboard_buffer[9]]);
-                let key_code = i16::from_ne_bytes([keyboard_buffer[10], keyboard_buffer[11]]);
-                let key_value = i32::from_ne_bytes([
-                    keyboard_buffer[12],
-                    keyboard_buffer[13],
-                    keyboard_buffer[14],
-                    keyboard_buffer[15],
-                ]);
+        let key_type = i16::from_ne_bytes([keyboard_buffer[offset], keyboard_buffer[{ offset += 1; offset }]]);
+        let key_code = i16::from_ne_bytes([keyboard_buffer[{ offset += 1; offset }], keyboard_buffer[{ offset += 1; offset }]]);
+        let key_value = i32::from_ne_bytes([
+            keyboard_buffer[{ offset += 1; offset }],
+            keyboard_buffer[{ offset += 1; offset }],
+            keyboard_buffer[{ offset += 1; offset }],
+            keyboard_buffer[{ offset += 1; offset }],
+        ]);
 
-                let linux_code: LinuxKeyCode = LinuxKeyCode::from(key_code);
-                let usb_code = match UsbKeyCode::from_str(LinuxKeyCode::to_string(&linux_code).as_str()) {
-                    Ok(code) => Some(code),
-                    Err(_) => None
-                };
+        let linux_code: LinuxKeyCode = LinuxKeyCode::from(key_code);
+        let usb_code = match UsbKeyCode::from_str(LinuxKeyCode::to_string(&linux_code).as_str()) {
+            Ok(code) => Some(code),
+            Err(_) => None
+        };
 
-                let event_type: EventType = EventType::from(key_type);
-                let key_state: KeyState = KeyState::from(key_value);
+        let event_type: EventType = EventType::from(key_type);
+        let key_state: KeyState = KeyState::from(key_value);
 
-                let key_modifier = match KeyCodeModifier::from_str(LinuxKeyCode::to_string(&linux_code).as_str()) {
-                    Ok(modifier) => Some(modifier),
-                    Err(_) => None
-                };
+        let key_modifier = match KeyCodeModifier::from_str(LinuxKeyCode::to_string(&linux_code).as_str()) {
+            Ok(modifier) => Some(modifier),
+            Err(_) => None
+        };
 
-                if event_type == EventType::EvKey {
-                    // match usb_code {
-                    //     Some(code) => {
-                    //         println!("UsbCode: {:#?}", code.to_string());
-                    //     },
-                    //     None => {
-                    //         match key_modifier {
-                    //             Some(modifier) => {
-                    //                 println!("KeyModifier: {:#?}", modifier.to_string());
-                    //             },
-                    //             None => {
-                    //                 println!("Failed to find KeyCodeModifier or Usbcode! (ID: {:#?})", linux_code);
-                    //             }
-                    //         }
-                    //     }
-                    // }
-                    // println!("EventType: {:#?}", event_type);
-                    // println!("Keystate: {:#?}", key_state);
-
-                    match key_state {
-                        KeyState::KeyDown | KeyState::KeyHold => {
-                            match key_modifier {
-                                Some(modifier) => {
-                                    return add_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
-                                }
-                                None => {
-                                    if let Some(code) = usb_code {
-                                        return add_generic_down(code as i32, &global_keyboard_state.keys_down);
-                                    }
-                                }
+        if event_type == EventType::EvKey {
+            match key_state {
+                KeyState::KeyDown | KeyState::KeyHold => {
+                    match key_modifier {
+                        Some(modifier) => {
+                            return add_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
+                        }
+                        None => {
+                            if let Some(code) = usb_code {
+                                return add_generic_down(code as i32, &global_keyboard_state.keys_down);
                             }
                         }
-                        KeyState::KeyUp => {
-                            match key_modifier {
-                                Some(modifier) => {
-                                    return remove_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
-                                }
-                                None => {
-                                    if let Some(code) = usb_code {
-                                        return remove_generic_down(code as i32, &global_keyboard_state.keys_down);
-                                    }
-                                }
+                    }
+                }
+                KeyState::KeyUp => {
+                    match key_modifier {
+                        Some(modifier) => {
+                            return remove_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
+                        }
+                        None => {
+                            if let Some(code) = usb_code {
+                                return remove_generic_down(code as i32, &global_keyboard_state.keys_down);
                             }
                         }
                     }
                 }
             }
-        }
-        None => {
-            return Err(Error::new(
-                ErrorKind::Other,
-                String::from("Failed to find keyboard device file!"),
-            ));
         }
     }
 
@@ -607,13 +589,13 @@ pub fn attempt_flush(
 
 pub fn add_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), Error> {
     if let Ok(generic_keyvec) = key_vec.read() {
-        if generic_keyvec.contains(&(key as i32)) {
+        if generic_keyvec.contains(&(key)) {
             return Ok(());
         }
     }
 
     if let Ok(mut generic_keyvec_writer) = key_vec.write() {
-        generic_keyvec_writer.push(key as i32);
+        generic_keyvec_writer.push(key);
 
         return Ok(());
     }
@@ -636,38 +618,35 @@ pub fn remove_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), E
     ))
 }
 
-pub fn check_keyboards(keyboard_inputs: Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
-    loop {
-        for keyboard_input in &keyboard_inputs {
-            if keyboard_interfaces.iter().any(|x| keyboard_inputs.contains(&x.keyboard_path)) {
-                thread::sleep(Duration::from_millis(1));
-                continue;
-            }
+pub fn check_keyboards(keyboard_inputs: &Vec<String>, keyboard_interfaces: &'static mut Vec<Keyboard>) {
+    for keyboard_input in keyboard_inputs {
+        if keyboard_interfaces.iter().any(|keyboard_interface| &keyboard_interface.keyboard_path == keyboard_input) {
+            thread::sleep(Duration::from_millis(1));
+            continue;
+        }
 
-            let keyboard_path = Path::new(&keyboard_input);
+        let keyboard_path = Path::new(&keyboard_input);
 
-            if Path::exists(keyboard_path) {
-                // println!("Found new keyboard adding to pool, ({})", &keyboard_path.to_string_lossy());
-                let keyboard = match OpenOptions::new()
-                    .write(true)
-                    .read(true)
-                    .open(keyboard_path)
-                {
-                    Ok(result) => result,
-                    Err(_) => continue,
-                };
-
-                let mut keyboard_interface = Keyboard {
-                    keyboard_device_file: Some(keyboard),
-                    keyboard_path: keyboard_input.clone(),
-                };
-
-                if let Err(_) = write_scancode_set(&mut keyboard_interface) {
-                    // println!("Warning failed to set scancode 2, ignoring. ({})", err)
+        if Path::exists(keyboard_path) {
+            let keyboard = match OpenOptions::new()
+                .write(true)
+                .read(true)
+                .open(keyboard_path)
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    continue;
                 }
+            };
 
-                keyboard_interfaces.push(keyboard_interface);
-            }
+            let mut keyboard_interface = Keyboard {
+                keyboard_device_file: keyboard,
+                keyboard_path: keyboard_input.clone(),
+            };
+
+            let _ = write_scancode_set(&mut keyboard_interface);
+
+            keyboard_interfaces.push(keyboard_interface);
         }
     }
 }
@@ -698,20 +677,13 @@ pub fn is_modifier_down(
 pub fn write_scancode_set(keyboard: &mut Keyboard) -> Result<(), Error> {
     let keyboard_scancode_packet: [u8; 2] = [0xF0, 2];
 
-    if let Some(ref mut keyboard_data_buffer) = keyboard.keyboard_device_file {
-        match keyboard_data_buffer.write_all(&keyboard_scancode_packet) {
-            Ok(_) => {
-                match keyboard_data_buffer.flush() {
-                    Ok(_) => return Ok(()),
-                    Err(err) => return Err(err),
-                };
+    return match keyboard.keyboard_device_file.write_all(&keyboard_scancode_packet) {
+        Ok(_) => {
+            match keyboard.keyboard_device_file.flush() {
+                Ok(_) => Ok(()),
+                Err(err) => Err(err),
             }
-            Err(err) => return Err(err),
-        };
-    }
-
-    Err(Error::new(
-        ErrorKind::Other,
-        String::from("Failed to set scancode 2 set!"),
-    ))
+        }
+        Err(err) => Err(err)
+    };
 }

@@ -174,39 +174,37 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_wr
     hid::write_mouse(&raw_data, gadget_writer)
 }
 
-pub fn check_mouses(mouse_inputs: Vec<HidMouse>, mouse_interfaces: &'static mut Lazy<Vec<Mouse>>) {
-    loop {
-        for mouse_input in &mouse_inputs {
-            if mouse_interfaces.iter().any(|x| mouse_inputs.iter().any(|y| y.mouse_path == x.mouse_path)) {
-                thread::sleep(Duration::from_millis(1));
-                continue;
+pub fn check_mouses(mouse_inputs: &Vec<HidMouse>, mouse_interfaces: &'static mut Lazy<Vec<Mouse>>) {
+    for mouse_input in mouse_inputs {
+        if mouse_interfaces.iter().any(|x| mouse_inputs.iter().any(|y| y.mouse_path == x.mouse_path)) {
+            thread::sleep(Duration::from_millis(1));
+            continue;
+        }
+
+        let mouse_path = Path::new(&mouse_input.mouse_path);
+        if Path::exists(mouse_path) {
+            let mouse = match OpenOptions::new()
+                .write(true)
+                .read(true)
+                .open(mouse_path)
+            {
+                Ok(result) => result,
+                Err(_) => continue,
+            };
+
+            let mut mouse_interface = Mouse {
+                mouse_data_buffer: Vec::new(),
+                mouse_state: MouseState::default(),
+                mouse_device_file: mouse,
+                mouse_settings: MouseSettings::default(),
+                mouse_path: mouse_input.mouse_path.clone(),
+            };
+
+            if let Err(err) = write_magic_scroll_feature(&mut mouse_interface, true) {
+                panic!("Failed to write mouse scroll feature! {}", err);
             }
 
-            let mouse_path = Path::new(&mouse_input.mouse_path);
-            if Path::exists(mouse_path) {
-                let mouse = match OpenOptions::new()
-                    .write(true)
-                    .read(true)
-                    .open(mouse_path)
-                {
-                    Ok(result) => result,
-                    Err(_) => continue,
-                };
-
-                let mut mouse_interface = Mouse {
-                    mouse_data_buffer: Vec::new(),
-                    mouse_state: MouseState::default(),
-                    mouse_device_file: mouse,
-                    mouse_settings: MouseSettings::default(),
-                    mouse_path: mouse_input.mouse_path.clone(),
-                };
-
-                if let Err(err) = write_magic_scroll_feature(&mut mouse_interface, true) {
-                    panic!("Failed to write mouse scroll feature! {}", err);
-                }
-
-                mouse_interfaces.push(mouse_interface);
-            }
+            mouse_interfaces.push(mouse_interface);
         }
     }
 }
