@@ -584,7 +584,7 @@ pub fn attempt_flush(
     global_keyboard_state: &'static mut KeyboardState,
     gadget_writer: &mut BufWriter<&mut File>,
 ) -> Result<(), Error> {
-    hid::write_keyboard(&global_keyboard_state, gadget_writer)
+    hid::write_keyboard(global_keyboard_state, gadget_writer)
 }
 
 pub fn add_generic_down(key: i32, key_vec: &RwLock<Vec<i32>>) -> Result<(), Error> {
@@ -677,7 +677,7 @@ pub fn is_modifier_down(
 pub fn write_scancode_set(keyboard: &mut Keyboard) -> Result<(), Error> {
     let keyboard_scancode_packet: [u8; 2] = [0xF0, 2];
 
-    return match keyboard.keyboard_device_file.write_all(&keyboard_scancode_packet) {
+    match keyboard.keyboard_device_file.write_all(&keyboard_scancode_packet) {
         Ok(_) => {
             match keyboard.keyboard_device_file.flush() {
                 Ok(_) => Ok(()),
@@ -685,5 +685,5 @@ pub fn write_scancode_set(keyboard: &mut Keyboard) -> Result<(), Error> {
             }
         }
         Err(err) => Err(err)
-    };
+    }
 }

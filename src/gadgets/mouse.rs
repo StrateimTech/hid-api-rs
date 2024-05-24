@@ -23,7 +23,7 @@ impl Mouse {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct MouseState {
     pub left_button: bool,
     pub right_button: bool,
@@ -40,18 +40,6 @@ pub struct MouseSettings {
     pub sensitivity_multiplier: i16,
 }
 
-impl Default for MouseState {
-    fn default() -> Self {
-        MouseState {
-            left_button: false,
-            right_button: false,
-            middle_button: false,
-            four_button: false,
-            five_button: false,
-        }
-    }
-}
-
 impl Default for MouseSettings {
     fn default() -> Self {
         MouseSettings {
@@ -63,6 +51,7 @@ impl Default for MouseSettings {
     }
 }
 
+#[derive(Default)]
 pub struct MouseRaw {
     pub left_button: bool,
     pub right_button: bool,
@@ -73,21 +62,6 @@ pub struct MouseRaw {
     pub relative_x: i16,
     pub relative_y: i16,
     pub relative_wheel: i16,
-}
-
-impl Default for MouseRaw {
-    fn default() -> Self {
-        MouseRaw {
-            left_button: false,
-            right_button: false,
-            middle_button: false,
-            four_button: false,
-            five_button: false,
-            relative_x: 0,
-            relative_y: 0,
-            relative_wheel: 0,
-        }
-    }
 }
 
 pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
@@ -114,10 +88,10 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
             mouse_five = mouse_buffer[3] & 0x20 > 0;
         }
 
-        let mut relative_y = (i8::from_be_bytes(mouse_buffer[2].to_be_bytes()) * -1) as i16;
+        let mut relative_y = -i8::from_be_bytes(mouse_buffer[2].to_be_bytes()) as i16;
         let mut relative_x = i8::from_be_bytes(mouse_buffer[1].to_be_bytes()) as i16;
 
-        let mut relative_wheel = (i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) * -1) as i16;
+        let mut relative_wheel = -i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) as i16;
         if mouse_read_length == 4 {
             let mut z = ((mouse_buffer[3] & 0x8) | (mouse_buffer[3] & 0x4) | (mouse_buffer[3] & 0x2) | (mouse_buffer[3] & 0x1)) as i8;
 
@@ -125,7 +99,7 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
                 z = (z << 4) >> 4
             }
 
-            relative_wheel = (i8::from_be_bytes(z.to_be_bytes()) * -1) as i16;
+            relative_wheel = -i8::from_be_bytes(z.to_be_bytes()) as i16;
         }
 
         if mouse.mouse_settings.invert_x {
@@ -156,7 +130,8 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
 
         return push_mouse_event(raw_mouse, Some(mouse), gadget_writer);
     }
-    return Ok(());
+
+    Ok(())
 }
 
 pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
@@ -217,7 +192,7 @@ pub fn write_magic_scroll_feature(mouse: &mut Mouse, side_buttons: bool) -> Resu
         mouse_scroll = [0xf3, 200, 0xf3, 200, 0xf3, 80];
     }
 
-    if let Err(_) = mouse.mouse_device_file.write_all(&mouse_scroll) {
+    if mouse.mouse_device_file.write_all(&mouse_scroll).is_err() {
         return Err(Error::new(
             ErrorKind::Other,
             String::from("Failed write magic scroll feature to mouse!"),
@@ -232,7 +207,7 @@ pub fn write_poll_rate(mouse: &mut Mouse, poll_rate: i32) -> Result<(), Error> {
     poll_rate_packet.push(0xf3);
     poll_rate_packet.append(&mut poll_rate.to_be_bytes().to_vec());
 
-    if let Err(_) = mouse.mouse_device_file.write_all(&poll_rate_packet) {
+    if mouse.mouse_device_file.write_all(&poll_rate_packet).is_err() {
         return Err(Error::new(
             ErrorKind::Other,
             String::from("Failed set polling rate feature to mouse! (Defaulting to 125 hz)"),

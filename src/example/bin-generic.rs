@@ -60,7 +60,7 @@ pub fn main() {
             // println!("Total mouses in circulation: {}", mouses.len());
             for mouse_index in 0..mouses.len() {
                 let mouse = &mut mouses[mouse_index];
-                let mouse_state = mouse.get_state().clone();
+                let mouse_state = mouse.get_state();
 
                 let left: bool = mouse_state.left_button;
                 let middle: bool = mouse_state.middle_button;
@@ -95,7 +95,6 @@ pub fn main() {
 
         io::stdin()
             .read_line(&mut answer)
-            .ok()
             .expect("Failed to read line");
         if !answer.is_empty() {
             println!("Stopping");

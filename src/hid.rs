@@ -56,13 +56,8 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> 
     ]
     .concat();
 
-    if let Err(err) = gadget_writer.write(&formatted_event) {
-        return Err(err);
-    }
-
-    if let Err(err) = gadget_writer.flush() {
-        return Err(err);
-    };
+    gadget_writer.write(&formatted_event)?;
+    gadget_writer.flush()?;
 
     Ok(())
 }
@@ -81,7 +76,7 @@ pub fn write_keyboard(
     let mut modifier = 0u8;
     let bits = modifier.view_bits_mut::<Lsb0>();
     for modifier in &modifiers_down {
-        bits.set(modifier.clone() as usize, true);
+        bits.set(*modifier as usize, true);
     }
 
     let mut keys_down: Vec<i32> = Vec::new();
@@ -106,13 +101,8 @@ pub fn write_keyboard(
         }
     }
 
-    if let Err(err) = gadget_writer.write(&formatted_event) {
-        return Err(err);
-    }
-
-    if let Err(err) = gadget_writer.flush() {
-        return Err(err);
-    };
+    gadget_writer.write(&formatted_event)?;
+    gadget_writer.flush()?;
 
     Ok(())
 }
