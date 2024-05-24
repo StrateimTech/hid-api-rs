@@ -54,7 +54,6 @@ pub fn main() {
 
         io::stdin()
             .read_line(&mut answer)
-            .ok()
             .expect("Failed to read line");
 
         if !answer.is_empty() {

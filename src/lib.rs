@@ -26,13 +26,13 @@ pub struct HidMouse {
 }
 
 static mut HID_SPEC: Option<HidSpecification> = None;
-static mut MOUSE_INTERFACES: Lazy<Vec<Mouse>> = Lazy::new(|| Vec::new());
+static mut MOUSE_INTERFACES: Lazy<Vec<Mouse>> = Lazy::new(Vec::new);
 static mut MOUSE_READING: bool = true;
 
 static mut KEYBOARD_INTERFACES: Vec<Keyboard> = Vec::new();
 static mut KEYBOARD_READING: bool = true;
 
-static mut GLOBAL_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(|| KeyboardState::default());
+static mut GLOBAL_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(KeyboardState::default);
 
 pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> {
     unsafe {
@@ -72,7 +72,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
 
                         let mut mouse_writer = BufWriter::new(gadget_mouse);
                         thread::spawn(move || {
-                            let mouse_index = mouse_interface_index.clone();
+                            let mouse_index = mouse_interface_index;
                             loop {
                                 if !MOUSE_READING {
                                     break;
@@ -112,7 +112,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                         KEYBOARD_THREADS.push(keyboard.keyboard_path.clone());
 
                         thread::spawn(move || {
-                            let keyboard_index = keyboard_interface_index.clone();
+                            let keyboard_index = keyboard_interface_index;
 
                             loop {
                                 if !KEYBOARD_READING {
@@ -147,7 +147,7 @@ pub fn stop_pass_through() -> Result<(), Error> {
         MOUSE_READING = false;
         KEYBOARD_READING = false;
 
-        return match &HID_SPEC {
+        match &HID_SPEC {
             Some(spec) => {
                 let gadget_device = match hid::open_gadget_device(spec.gadget_output.clone()) {
                     Ok(gadget_device) => gadget_device,
@@ -157,13 +157,11 @@ pub fn stop_pass_through() -> Result<(), Error> {
                 let mut gadget_writer = BufWriter::new(gadget_device);
 
                 MOUSE_INTERFACES.clear();
-                if let Err(err) = mouse::push_mouse_event(MouseRaw::default(), None, &mut gadget_writer) {
-                    return Err(err);
-                }
+                mouse::push_mouse_event(MouseRaw::default(), None, &mut gadget_writer)?;
 
                 KEYBOARD_INTERFACES.clear();
                 static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
-                    Lazy::new(|| KeyboardState::default());
+                    Lazy::new(KeyboardState::default);
                 if let Err(err) =
                     keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut gadget_writer)
                 {
@@ -176,7 +174,7 @@ pub fn stop_pass_through() -> Result<(), Error> {
                 ErrorKind::Other,
                 String::from("Hid specification not defined cannot open gadget device"),
             ))
-        };
+        }
     }
 }
 
@@ -214,9 +212,9 @@ fn start_hot_reload(
 }
 
 pub fn get_mouses() -> &'static mut Lazy<Vec<Mouse>, fn() -> Vec<Mouse>> {
-    unsafe { return &mut MOUSE_INTERFACES; }
+    unsafe { &mut MOUSE_INTERFACES }
 }
 
 pub fn get_keyboard() -> &'static mut KeyboardState {
-    unsafe { return &mut GLOBAL_KEYBOARD_STATE; }
+    unsafe { &mut GLOBAL_KEYBOARD_STATE }
 }

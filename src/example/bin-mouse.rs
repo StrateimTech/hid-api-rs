@@ -37,7 +37,7 @@ pub fn main() {
 
             for mouse_index in 0..mouses.len() {
                 let mouse = &mut mouses[mouse_index];
-                let mouse_state = mouse.get_state().clone();
+                let mouse_state = *mouse.get_state();
 
                 if mouse_state.middle_button {
                     mouse.mouse_settings.invert_y = !mouse.mouse_settings.invert_y;
@@ -55,7 +55,6 @@ pub fn main() {
 
         io::stdin()
             .read_line(&mut answer)
-            .ok()
             .expect("Failed to read line");
 
         if !answer.is_empty() {
