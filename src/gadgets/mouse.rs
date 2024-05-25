@@ -151,7 +151,7 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_wr
 
 pub fn check_mouses(mouse_inputs: &Vec<HidMouse>, mouse_interfaces: &'static mut Lazy<Vec<Mouse>>) {
     for mouse_input in mouse_inputs {
-        if mouse_interfaces.iter().any(|x| mouse_inputs.iter().any(|y| y.mouse_path == x.mouse_path)) {
+        if mouse_interfaces.iter().any(|mouse| mouse.mouse_path == mouse_input.mouse_path) {
             thread::sleep(Duration::from_millis(1));
             continue;
         }
