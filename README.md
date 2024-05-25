@@ -1,7 +1,7 @@
 # hid-api-rs
 [![Crates.io](https://img.shields.io/crates/v/hid-api-rs?style=flat-square)](https://crates.io/crates/hid-api-rs) [![docs.rs](https://img.shields.io/docsrs/hid-api-rs?style=flat-square)](https://docs.rs/hid-api-rs/)
 
-Want access to keystrokes & mouse inputs without calling system-level APIs or even before kernel processing? This library makes it easy by proxying devices through a microcomputer (Raspberry PI 4b & 5), which is then in turn routed into any computer. This allows for Injection, modification, and state viewing of every device proxied.
+Want access to keystrokes & mouse inputs without calling system-level APIs or even before host kernel processing? This library makes it easy by proxying devices through a microcomputer (Raspberry PI 4b & 5), which is then in turn routed into any computer. This allows for Injection, modification, and state viewing of every device proxied.
 
 This implementation is an improvement compared to the [C# version](https://github.com/StrateimTech/HID-API/) as the modifier bit field is reported correctly and multiple keyboards can function simultaneously.
 
@@ -9,7 +9,7 @@ This implementation is an improvement compared to the [C# version](https://githu
 If you're unfamiliar with the process of setting this up, follow these steps:
 
 1. Ensure that the SBC is connected to the host PC (this should show up as a single device with both keyboard and mouse protocols). If you're using a Raspberry Pi 4 Model B or 5, use a USBC-USBA Adapter or USBC cable.
-2. Follow [First Installation](##-First-Installation)
+2. Follow [First Installation](#first-installation)
 3. Connect a mouse or keyboard (spare if you have one initially to make it easier) to the SBC.
 4. Find where your mouse is in `/dev/input/` (it should be `/dev/input/mice/`). Skip this step if you didn't plug a mouse in.
 5. If you're using a keyboard, it will differ and should show up in `/dev/input/by-id/` named `...-event-kbd`. Skip this step if you didn't plug a keyboard in.
@@ -35,14 +35,15 @@ cd ./hid-api-rs
 cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
 ```
 Once built transfer to pi using preferred method, before running make sure to use elevated permissions since its accessing /dev/ directory.
+_(``chmod +x hid_api_example``)_
 
 ## Requirements
 - Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B or 5)
 
 ## Examples
-- ``hid_api_example``, Has both keyboard & mouse showcase code, with state injection.
-- ``hid_api_example_mouse``, Has mouse only and shows current state of mouse every 500 millis.
-- ``hid_api_example_injection``, Only has injection no device pass through. It should move the mouse right 25px every second.
+- ``hid_api_example``, Both keyboard & mouse example code, with state injection.
+- ``hid_api_example_mouse``, Mouse only, shows current state of mouse every 500 millis.
+- ``hid_api_example_injection``, Injection only no device pass through. It should move the mouse right 25px every second.
 
 # Report descriptor for configfs gadget
 ```
