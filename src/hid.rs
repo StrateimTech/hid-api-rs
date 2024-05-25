@@ -45,18 +45,17 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> 
     bits.set(3, raw.four_button);
     bits.set(4, raw.five_button);
 
-    let mouse_x: &[u16] = &[raw.relative_x as u16];
-    let mouse_y: &[u16] = &[raw.relative_y as u16];
-    let mouse_wheel: &[u16] = &[raw.relative_wheel as u16];
+    let x_bytes = u16_to_u8s(raw.relative_x as u16);
+    let y_bytes = u16_to_u8s(raw.relative_y as u16);
+    let wheel_bytes = u16_to_u8s(raw.relative_wheel as u16);
 
     let formatted_event = [
-        &ID,
-        &[buttons],
-        as_u8_slice(mouse_x),
-        as_u8_slice(mouse_y),
-        as_u8_slice(mouse_wheel),
-    ]
-    .concat();
+        &ID[..],
+        &mut buttons.to_le_bytes(),
+        &[x_bytes[0]], &[x_bytes[1]],
+        &[y_bytes[0]], &[y_bytes[1]],
+        &[wheel_bytes[0]], &[wheel_bytes[1]]
+    ].concat();
 
     gadget_writer.write(&formatted_event)?;
     gadget_writer.flush()?;
@@ -109,9 +108,9 @@ pub fn write_keyboard(
     Ok(())
 }
 
-fn as_u8_slice(slice: &[u16]) -> &[u8] {
-    let len = 2 * slice.len();
+fn u16_to_u8s(value: u16) -> [u8; 2] {
+    let low_byte = (value >> 8) as u8;
+    let high_byte = value as u8;
 
-    let ptr = slice.as_ptr().cast::<u8>();
-    unsafe { std::slice::from_raw_parts(ptr, len) }
+    [high_byte, low_byte]
 }
