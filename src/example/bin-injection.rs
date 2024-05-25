@@ -3,7 +3,6 @@ extern crate hid_api_rs;
 use std::{io, process, thread};
 use std::env;
 use std::io::BufWriter;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use hid_api_rs::gadgets::mouse;
