@@ -1,13 +1,14 @@
 [package]
 name = "hid-api-rs"
-description = "HID & GadgetFs hardware passthrough for injecting keyboard/mouse inputs."
-version = "2.0.1"
+description = "Hardware proxy for injecting & intercepting keyboard/mouse inputs"
+version = "3.0.0"
 edition = "2021"
 license = "GPL-2.0-or-later"
 readme = "README.md"
 repository = "https://github.com/StrateimTech/hid-api-rs"
 authors = ["Etho"]
-keywords = ["hid", "utility", "usb", "mouse", "keyboard"]
+keywords = ["hid", "linux", "usb", "mouse", "keyboard"]
+categories = ["api-bindings", "hardware-support", "development-tools"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
