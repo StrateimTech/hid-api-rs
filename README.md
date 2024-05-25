@@ -19,7 +19,7 @@ If you're unfamiliar with the process of setting this up, follow these steps:
 ## First Installation
 Run the following commands on your Raspberry Pi
 1. ``echo "dwc2" | sudo tee -a /etc/modules && echo "libcomposite" | sudo tee -a /etc/modules``, these enable OTG Host/Slave drivers & ConfigFS
-2. ``echo "dtoverlay=dwc2, dr_mode=peripheral" | /boot/firmware/config.txt``, make sure ``otg_mode=1`` is commented or removed it won't work otherwise.
+2. ``echo "dtoverlay=dwc2, dr_mode=peripheral" | /boot/firmware/config.txt``, make sure ``otg_mode=1`` is commented out or removed entirely it won't work otherwise.
 3. ``sudo wget -O /usr/bin/example_gadget https://raw.githubusercontent.com/StrateimTech/hid-api-rs/master/example_gadget.sh``
 4. ``sudo chmod +x /usr/bin/example_gadget``
 5. ``echo "/usr/bin/example_gadget" | sudo tee -a /etc/rc.local``
@@ -28,7 +28,7 @@ Run the following commands on your Raspberry Pi
 
 If one of these commands didn't work you can follow this external but still relevant [guide](https://www.isticktoit.net/?p=1383) by Tobi.
 
-## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs) for a Pi4 Model b (Only model that supports USB OTG)
+## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs)
 ```
 git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
@@ -45,7 +45,7 @@ _(``chmod +x hid_api_example``)_
 - ``hid_api_example_mouse``, Mouse only, shows current state of mouse every 500 millis.
 - ``hid_api_example_injection``, Injection only no device pass through. It should move the mouse right 25px every second.
 
-# Report descriptor for configfs gadget
+# Report descriptor for ConfigFs gadget
 ```
 0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
 0x09, 0x02,        // Usage (Mouse)
