@@ -23,6 +23,7 @@ pub struct HidSpecification {
 pub struct HidMouse {
     pub mouse_path: String,
     pub mouse_poll_rate: Option<i32>,
+    pub mouse_side_buttons: bool
 }
 
 static mut HID_SPEC: Option<HidSpecification> = None;

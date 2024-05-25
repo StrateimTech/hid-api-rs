@@ -15,6 +15,8 @@ pub struct Mouse {
 
     pub mouse_settings: MouseSettings,
     pub mouse_path: String,
+
+    side_buttons: bool
 }
 
 impl Mouse {
@@ -79,7 +81,7 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
         let mut mouse_five = false;
 
         // https://isdaman.com/alsos/hardware/mouse/ps2interface.htm
-        if mouse_read_length == 4 {
+        if mouse.side_buttons {
             mouse_four = mouse_buffer[3] & 0x10 > 0;
             mouse_five = mouse_buffer[3] & 0x20 > 0;
         }
@@ -87,16 +89,18 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
         let mut relative_y = -i8::from_be_bytes(mouse_buffer[2].to_be_bytes()) as i16;
         let mut relative_x = i8::from_be_bytes(mouse_buffer[1].to_be_bytes()) as i16;
 
-        let mut relative_wheel = -i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) as i16;
-        if mouse_read_length == 4 {
-            let mut z = ((mouse_buffer[3] & 0x8) | (mouse_buffer[3] & 0x4) | (mouse_buffer[3] & 0x2) | (mouse_buffer[3] & 0x1)) as i8;
+        let mut relative_wheel = match mouse.side_buttons {
+            true => {
+                let mut z = ((mouse_buffer[3] & 0x8) | (mouse_buffer[3] & 0x4) | (mouse_buffer[3] & 0x2) | (mouse_buffer[3] & 0x1)) as i8;
 
-            if mouse_buffer[3] & 0x8 > 0 {
-                z = (z << 4) >> 4
-            }
+                if mouse_buffer[3] & 0x8 > 0 {
+                    z = (z << 4) >> 4
+                }
 
-            relative_wheel = -i8::from_be_bytes(z.to_be_bytes()) as i16;
-        }
+                -i8::from_be_bytes(z.to_be_bytes()) as i16
+            },
+            false => -i8::from_be_bytes(mouse_buffer[3].to_be_bytes()) as i16
+        };
 
         if mouse.mouse_settings.invert_x {
             relative_x *= -1;
@@ -169,26 +173,24 @@ pub fn check_mouses(mouse_inputs: &Vec<HidMouse>, mouse_interfaces: &'static mut
                 mouse_device_file: mouse,
                 mouse_settings: MouseSettings::default(),
                 mouse_path: mouse_input.mouse_path.clone(),
+                side_buttons: mouse_input.mouse_side_buttons
             };
 
-            if let Err(err) = write_magic_scroll_feature(&mut mouse_interface, true) {
-                panic!("Failed to write mouse scroll feature! {}", err);
+            // https://wiki.osdev.org/PS/2_Mouse#Mouse_Extensions
+            let mut mouse_feature: [u8; 6] = [0xf3, 200, 0xf3, 100, 0xf3, 80];
+            if mouse_input.mouse_side_buttons {
+                mouse_feature = [0xf3, 200, 0xf3, 200, 0xf3, 80];
             }
+
+            _ = write_feature(&mut mouse_interface, mouse_feature);
 
             mouse_interfaces.push(mouse_interface);
         }
     }
 }
 
-// https://wiki.osdev.org/PS/2_Mouse
-pub fn write_magic_scroll_feature(mouse: &mut Mouse, side_buttons: bool) -> Result<(), Error> {
-    let mut mouse_scroll: [u8; 6] = [0xf3, 200, 0xf3, 100, 0xf3, 80];
-
-    if side_buttons {
-        mouse_scroll = [0xf3, 200, 0xf3, 200, 0xf3, 80];
-    }
-
-    if mouse.mouse_device_file.write_all(&mouse_scroll).is_err() {
+pub fn write_feature(mouse: &mut Mouse, feature: [u8; 6]) -> Result<(), Error> {
+    if mouse.mouse_device_file.write_all(&feature).is_err() {
         return Err(Error::new(
             ErrorKind::Other,
             String::from("Failed write magic scroll feature to mouse!"),
@@ -206,7 +208,7 @@ pub fn write_poll_rate(mouse: &mut Mouse, poll_rate: i32) -> Result<(), Error> {
     if mouse.mouse_device_file.write_all(&poll_rate_packet).is_err() {
         return Err(Error::new(
             ErrorKind::Other,
-            String::from("Failed set polling rate feature to mouse! (Defaulting to 125 hz)"),
+            String::from("Failed to set poll rate to mouse! (Defaulting to 125 hz or last mouse profile)"),
         ));
     }
 
