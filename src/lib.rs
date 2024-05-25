@@ -60,9 +60,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                     continue;
                 }
 
-                for mouse_interface_index in 0..MOUSE_INTERFACES.len() {
-                    let mouse: &mut Mouse = &mut MOUSE_INTERFACES[mouse_interface_index];
-
+                for (mouse_interface_index, mouse) in MOUSE_INTERFACES.iter_mut().enumerate() {
                     if !MOUSE_THREADS.contains(&mouse.mouse_path) || MOUSE_THREADS.is_empty() {
                         let gadget_mouse = match hid::open_gadget_device(specification.gadget_output.clone()) {
                             Ok(gadget_device) => gadget_device,
@@ -79,7 +77,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                                     break;
                                 }
 
-                                if let Err(_) = mouse::attempt_read(mouse, &mut mouse_writer) {
+                                if mouse::attempt_read(mouse, &mut mouse_writer).is_err() {
                                     MOUSE_INTERFACES.remove(mouse_index);
                                     MOUSE_THREADS.remove(mouse_index);
 
@@ -106,9 +104,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                     continue;
                 }
 
-                for keyboard_interface_index in 0..KEYBOARD_INTERFACES.len() {
-                    let keyboard: &mut Keyboard = &mut KEYBOARD_INTERFACES[keyboard_interface_index];
-
+                for (keyboard_interface_index, keyboard) in KEYBOARD_INTERFACES.iter_mut().enumerate() {
                     if !KEYBOARD_THREADS.contains(&keyboard.keyboard_path) || KEYBOARD_THREADS.is_empty() {
                         KEYBOARD_THREADS.push(keyboard.keyboard_path.clone());
 
@@ -120,7 +116,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                                     break;
                                 }
 
-                                if let Err(_) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
+                                if keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE).is_err() {
                                     KEYBOARD_INTERFACES.remove(keyboard_index);
                                     KEYBOARD_THREADS.remove(keyboard_index);
 

@@ -24,7 +24,7 @@ pub fn open_gadget_device(gadget_device_path: String) -> Result<&'static mut Fil
             Err(error) => return Err(error),
         };
 
-        return match &mut GADGET_DEVICE_FILE {
+        match &mut GADGET_DEVICE_FILE {
             Some(ref mut gadget) => Ok(gadget),
             None => Err(Error::new(
                 ErrorKind::NotFound,
