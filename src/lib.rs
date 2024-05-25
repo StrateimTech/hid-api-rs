@@ -40,10 +40,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
         HID_SPEC = Some(specification.clone());
     }
 
-    let gadget_device_keyboard = match hid::open_gadget_device(specification.gadget_output.clone()) {
-        Ok(gadget_device) => gadget_device,
-        Err(err) => return Err(err),
-    };
+    let gadget_device_keyboard = hid::open_gadget_device(specification.gadget_output.clone())?;
 
     start_hot_reload(specification.mouse_inputs, specification.keyboard_inputs);
 
@@ -71,15 +68,14 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
 
                         let mut mouse_writer = BufWriter::new(gadget_mouse);
                         thread::spawn(move || {
-                            let mouse_index = mouse_interface_index;
                             loop {
                                 if !MOUSE_READING {
                                     break;
                                 }
 
                                 if mouse::attempt_read(mouse, &mut mouse_writer).is_err() {
-                                    MOUSE_INTERFACES.remove(mouse_index);
-                                    MOUSE_THREADS.remove(mouse_index);
+                                    MOUSE_INTERFACES.remove(mouse_interface_index);
+                                    MOUSE_THREADS.remove(mouse_interface_index);
 
                                     break;
                                 };
@@ -109,16 +105,14 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                         KEYBOARD_THREADS.push(keyboard.keyboard_path.clone());
 
                         thread::spawn(move || {
-                            let keyboard_index = keyboard_interface_index;
-
                             loop {
                                 if !KEYBOARD_READING {
                                     break;
                                 }
 
                                 if keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE).is_err() {
-                                    KEYBOARD_INTERFACES.remove(keyboard_index);
-                                    KEYBOARD_THREADS.remove(keyboard_index);
+                                    KEYBOARD_INTERFACES.remove(keyboard_interface_index);
+                                    KEYBOARD_THREADS.remove(keyboard_interface_index);
 
                                     break;
                                 };
