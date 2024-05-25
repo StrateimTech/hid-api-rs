@@ -184,6 +184,10 @@ pub fn check_mouses(mouse_inputs: &Vec<HidMouse>, mouse_interfaces: &'static mut
 
             _ = write_feature(&mut mouse_interface, mouse_feature);
 
+            if let Some(poll_rate) = mouse_input.mouse_poll_rate {
+                _ = write_poll_rate(&mut mouse_interface, poll_rate);
+            }
+
             mouse_interfaces.push(mouse_interface);
         }
     }
