@@ -507,6 +507,7 @@ const BUFFER_LENGTH: usize = 12;
 pub fn attempt_read(
     keyboard: &mut Keyboard,
     global_keyboard_state: &'static mut KeyboardState,
+    writer: &mut BufWriter<&mut File>
 ) -> Result<(), Error> {
     let mut keyboard_buffer = [0u8; BUFFER_LENGTH];
 
@@ -543,15 +544,17 @@ pub fn attempt_read(
         };
 
         if event_type == EventType::EvKey {
+            let mut result: Result<(), Error> = Ok(());
+            
             match key_state {
                 KeyState::KeyDown | KeyState::KeyHold => {
                     match key_modifier {
                         Some(modifier) => {
-                            return add_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
+                            result = add_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
                         }
                         None => {
                             if let Some(code) = usb_code {
-                                return add_generic_down(code as i32, &global_keyboard_state.keys_down);
+                                result = add_generic_down(code as i32, &global_keyboard_state.keys_down);
                             }
                         }
                     }
@@ -559,16 +562,20 @@ pub fn attempt_read(
                 KeyState::KeyUp => {
                     match key_modifier {
                         Some(modifier) => {
-                            return remove_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
+                            result = remove_generic_down(modifier as i32, &global_keyboard_state.modifiers_down);
                         }
                         None => {
                             if let Some(code) = usb_code {
-                                return remove_generic_down(code as i32, &global_keyboard_state.keys_down);
+                                result = remove_generic_down(code as i32, &global_keyboard_state.keys_down);
                             }
                         }
                     }
                 }
-            }
+            };
+
+            attempt_flush(global_keyboard_state, writer)?;
+
+            return result;
         }
     }
 

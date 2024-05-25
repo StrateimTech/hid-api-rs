@@ -23,7 +23,7 @@ pub struct HidSpecification {
 pub struct HidMouse {
     pub mouse_path: String,
     pub mouse_poll_rate: Option<i32>,
-    pub mouse_side_buttons: bool
+    pub mouse_side_buttons: bool,
 }
 
 static mut HID_SPEC: Option<HidSpecification> = None;
@@ -40,90 +40,98 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
         HID_SPEC = Some(specification.clone());
     }
 
-    let gadget_device_keyboard = hid::open_gadget_device(specification.gadget_output.clone())?;
-
-    start_hot_reload(specification.mouse_inputs, specification.keyboard_inputs);
+    start_hot_reload(specification.mouse_inputs.clone(), specification.keyboard_inputs.clone());
 
     unsafe {
-        thread::spawn(move || {
-            static mut MOUSE_THREADS: Vec<String> = Vec::new();
-            loop {
-                if !MOUSE_READING {
-                    return;
-                }
+        if specification.mouse_inputs.is_some() {
+            let mouse_spec = specification.clone();
+            thread::spawn(move || {
+                static mut MOUSE_THREADS: Vec<String> = Vec::new();
+                loop {
+                    if !MOUSE_READING {
+                        return;
+                    }
 
-                if MOUSE_INTERFACES.is_empty() {
-                    thread::sleep(Duration::from_millis(1));
-                    continue;
-                }
+                    if MOUSE_INTERFACES.is_empty() {
+                        thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
 
-                for (mouse_interface_index, mouse) in MOUSE_INTERFACES.iter_mut().enumerate() {
-                    if !MOUSE_THREADS.contains(&mouse.mouse_path) || MOUSE_THREADS.is_empty() {
-                        let gadget_mouse = match hid::open_gadget_device(specification.gadget_output.clone()) {
-                            Ok(gadget_device) => gadget_device,
-                            Err(_) => continue,
-                        };
+                    for (mouse_interface_index, mouse) in MOUSE_INTERFACES.iter_mut().enumerate() {
+                        if !MOUSE_THREADS.contains(&mouse.mouse_path) || MOUSE_THREADS.is_empty() {
+                            let gadget_mouse = match hid::open_gadget_device(mouse_spec.gadget_output.clone()) {
+                                Ok(gadget_device) => gadget_device,
+                                Err(_) => continue,
+                            };
 
-                        MOUSE_THREADS.push(mouse.mouse_path.clone());
+                            MOUSE_THREADS.push(mouse.mouse_path.clone());
 
-                        let mut mouse_writer = BufWriter::new(gadget_mouse);
-                        thread::spawn(move || {
-                            loop {
-                                if !MOUSE_READING {
-                                    break;
+                            let mut mouse_writer = BufWriter::new(gadget_mouse);
+                            thread::spawn(move || {
+                                loop {
+                                    if !MOUSE_READING {
+                                        break;
+                                    }
+
+                                    if mouse::attempt_read(mouse, &mut mouse_writer).is_err() {
+                                        MOUSE_INTERFACES.remove(mouse_interface_index);
+                                        MOUSE_THREADS.remove(mouse_interface_index);
+
+                                        break;
+                                    };
                                 }
+                            });
+                        }
+                    }
 
-                                if mouse::attempt_read(mouse, &mut mouse_writer).is_err() {
-                                    MOUSE_INTERFACES.remove(mouse_interface_index);
-                                    MOUSE_THREADS.remove(mouse_interface_index);
+                    thread::sleep(Duration::from_millis(1));
+                }
+            });
+        }
 
-                                    break;
-                                };
-                            }
-                        });
+        if specification.keyboard_inputs.is_some() {
+            let keyboard_spec = specification.clone();
+            thread::spawn(move || {
+                static mut KEYBOARD_THREADS: Vec<String> = Vec::new();
+                loop {
+                    if !KEYBOARD_READING {
+                        break;
+                    }
+
+                    if KEYBOARD_INTERFACES.is_empty() {
+                        thread::sleep(Duration::from_millis(1));
+                        continue;
+                    }
+
+                    for (keyboard_interface_index, keyboard) in KEYBOARD_INTERFACES.iter_mut().enumerate() {
+                        if !KEYBOARD_THREADS.contains(&keyboard.keyboard_path) || KEYBOARD_THREADS.is_empty() {
+                            let gadget_keyboard = match hid::open_gadget_device(keyboard_spec.gadget_output.clone()) {
+                                Ok(gadget_device) => gadget_device,
+                                Err(_) => continue,
+                            };
+
+                            KEYBOARD_THREADS.push(keyboard.keyboard_path.clone());
+
+                            let mut keyboard_writer = BufWriter::new(gadget_keyboard);
+                            thread::spawn(move || {
+                                loop {
+                                    if !KEYBOARD_READING {
+                                        break;
+                                    }
+
+                                    if keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE, &mut keyboard_writer).is_err() {
+                                        KEYBOARD_INTERFACES.remove(keyboard_interface_index);
+                                        KEYBOARD_THREADS.remove(keyboard_interface_index);
+
+                                        break;
+                                    };
+                                }
+                            });
+                        }
                     }
                 }
-            }
-        });
-
-        thread::spawn(move || {
-            let mut keyboard_writer = BufWriter::new(gadget_device_keyboard);
-
-            static mut KEYBOARD_THREADS: Vec<String> = Vec::new();
-            loop {
-                if !KEYBOARD_READING {
-                    break;
-                }
-
-                if KEYBOARD_INTERFACES.is_empty() {
-                    thread::sleep(Duration::from_millis(1));
-                    continue;
-                }
-
-                for (keyboard_interface_index, keyboard) in KEYBOARD_INTERFACES.iter_mut().enumerate() {
-                    if !KEYBOARD_THREADS.contains(&keyboard.keyboard_path) || KEYBOARD_THREADS.is_empty() {
-                        KEYBOARD_THREADS.push(keyboard.keyboard_path.clone());
-
-                        thread::spawn(move || {
-                            loop {
-                                if !KEYBOARD_READING {
-                                    break;
-                                }
-
-                                if keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE).is_err() {
-                                    KEYBOARD_INTERFACES.remove(keyboard_interface_index);
-                                    KEYBOARD_THREADS.remove(keyboard_interface_index);
-
-                                    break;
-                                };
-                            }
-                        });
-                    }
-                }
-
-                _ = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut keyboard_writer);
-            }
-        });
+            });
+        }
     }
 
     Ok(())
