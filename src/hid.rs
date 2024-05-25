@@ -1,10 +1,9 @@
-use std::io::Error;
 use std::ops::Deref;
 use std::{
     fs::{File, OpenOptions},
-    io,
     io::{BufWriter, Write},
 };
+use std::io::{Error, ErrorKind};
 
 use bitvec::prelude::Lsb0;
 use bitvec::view::BitView;
@@ -14,7 +13,7 @@ use crate::gadgets::mouse::MouseRaw;
 
 static mut GADGET_DEVICE_FILE: Option<File> = None;
 
-pub fn open_gadget_device(gadget_device_path: String) -> Result<&'static mut File, io::Error> {
+pub fn open_gadget_device(gadget_device_path: String) -> Result<&'static mut File, Error> {
     unsafe {
         GADGET_DEVICE_FILE = match OpenOptions::new()
             .write(true)
@@ -25,11 +24,14 @@ pub fn open_gadget_device(gadget_device_path: String) -> Result<&'static mut Fil
             Err(error) => return Err(error),
         };
 
-        if let Some(ref mut gadget) = &mut GADGET_DEVICE_FILE {
-            return Ok(gadget);
+        return match &mut GADGET_DEVICE_FILE {
+            Some(ref mut gadget) => Ok(gadget),
+            None => Err(Error::new(
+                ErrorKind::NotFound,
+                String::from("Hid gadget device file not found."),
+            ))
         }
     }
-    panic!("Failed to open device file")
 }
 
 pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {

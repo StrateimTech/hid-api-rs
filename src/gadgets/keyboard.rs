@@ -510,12 +510,7 @@ pub fn attempt_read(
 ) -> Result<(), Error> {
     let mut keyboard_buffer = [0u8; BUFFER_LENGTH];
 
-    let keyboard_read_length = match keyboard.keyboard_device_file.read(&mut keyboard_buffer) {
-        Ok(result) => result,
-        Err(err) => {
-            return Err(err);
-        }
-    };
+    let keyboard_read_length = keyboard.keyboard_device_file.read(&mut keyboard_buffer)?;
 
     if keyboard_read_length >= BUFFER_LENGTH {
         let mut offset = match BUFFER_LENGTH {
@@ -644,7 +639,7 @@ pub fn check_keyboards(keyboard_inputs: &Vec<String>, keyboard_interfaces: &'sta
                 keyboard_path: keyboard_input.clone(),
             };
 
-            let _ = write_scancode_set(&mut keyboard_interface);
+            _ = write_scancode_set(&mut keyboard_interface);
 
             keyboard_interfaces.push(keyboard_interface);
         }
