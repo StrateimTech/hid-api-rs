@@ -3,7 +3,7 @@
 
 Want access to keystrokes & mouse inputs without calling system-level APIs or even before host kernel processing? This library makes it easy by proxying devices through a microcomputer (Raspberry PI 4b & 5), which is then in turn routed into any computer. This allows for Injection, modification, and state viewing of every device proxied.
 
-This implementation is an improvement compared to the [C# version](https://github.com/StrateimTech/HID-API/) as the modifier bit field is reported correctly and multiple keyboards can function simultaneously.
+This implementation is an improvement compared to the [C# version](https://github.com/StrateimTech/HID-API/) as multiple keyboards can function simultaneously.
 
 ## Setting Up
 If you're unfamiliar with the process of setting this up, follow these steps:
