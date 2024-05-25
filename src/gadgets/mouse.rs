@@ -66,13 +66,9 @@ pub struct MouseRaw {
 
 pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
     const BUFFER_LENGTH: usize = 4;
-
     let mut mouse_buffer = [0u8; BUFFER_LENGTH];
 
-    let mouse_read_length = match mouse.mouse_device_file.read(&mut mouse_buffer) {
-        Ok(result) => result,
-        Err(err) => return Err(err),
-    };
+    let mouse_read_length = mouse.mouse_device_file.read(&mut mouse_buffer)?;
 
     if mouse_read_length >= BUFFER_LENGTH {
         let left_button = mouse_buffer[0] & 0x1 > 0;

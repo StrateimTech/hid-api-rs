@@ -119,9 +119,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                                     break;
                                 }
 
-                                if let Err(err) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
-                                    println!("Failed to read keyboard, ({}). Removing from interface list!", err);
-
+                                if let Err(_) = keyboard::attempt_read(keyboard, &mut GLOBAL_KEYBOARD_STATE) {
                                     KEYBOARD_INTERFACES.remove(keyboard_index);
                                     KEYBOARD_THREADS.remove(keyboard_index);
 
@@ -132,9 +130,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                     }
                 }
 
-                if let Err(err) = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut keyboard_writer) {
-                    println!("Failed to flush keyboard state: {err}")
-                }
+                _ = keyboard::attempt_flush(&mut GLOBAL_KEYBOARD_STATE, &mut keyboard_writer);
             }
         });
     }
@@ -162,11 +158,7 @@ pub fn stop_pass_through() -> Result<(), Error> {
                 KEYBOARD_INTERFACES.clear();
                 static mut DEFAULT_KEYBOARD_STATE: Lazy<KeyboardState> =
                     Lazy::new(KeyboardState::default);
-                if let Err(err) =
-                    keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut gadget_writer)
-                {
-                    panic!("failed to flush keyboard, ({})", err)
-                };
+                keyboard::attempt_flush(&mut DEFAULT_KEYBOARD_STATE, &mut gadget_writer)?;
 
                 Ok(())
             }
