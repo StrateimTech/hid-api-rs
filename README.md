@@ -1,22 +1,32 @@
 # hid-api-rs
-This is a rewritten version of [HID-API's](https://github.com/StrateimTech/HID-API/) C# implementation, now in Rust!
-
 [![Crates.io](https://img.shields.io/crates/v/hid-api-rs?style=flat-square)](https://crates.io/crates/hid-api-rs) [![docs.rs](https://img.shields.io/docsrs/hid-api-rs?style=flat-square)](https://docs.rs/hid-api-rs/)
 
-Want to create cheats without calling system-level APIs for keystrokes and mouse inputs? This library makes it easy by converging your keyboards and mice directly into a microcomputer (Raspberry Pi), which is then routed into any other computer effectively passing through. This allows for independent external calls from the main computer, bypassing kernel-level anti-cheats. It's also capable of injecting keystrokes and mouse movements.
+Want access to keystrokes & mouse inputs without calling system-level APIs or even before kernel processing? This library makes it easy by proxying devices through a microcomputer (Raspberry PI 4b & 5), which is then in turn routed into any computer. This allows for Injection, modification, and state viewing of every device proxied.
 
 This implementation is an improvement compared to the [C# version](https://github.com/StrateimTech/HID-API/) as the modifier bit field is reported correctly and multiple keyboards can function simultaneously.
 
 ## Setting Up
 If you're unfamiliar with the process of setting this up, follow these steps:
 
-1. Follow this [guide](https://www.isticktoit.net/?p=1383) to set up a gadget that includes keyboard and mouse elements **however it will not function with this library**. Here's a completed [example script](https://github.com/StrateimTech/hid-api-rs/blob/master/example_gadget.sh/) that has been tested to work with this library.
-2. Ensure that the slave is connected to the master host PC (this should show up as a single device with both keyboard and mouse protocols). If you're using a Raspberry Pi 4 Model B, use a USBC-USBA Adapter or USBC cable.
-3. Connect a mouse or keyboard (spare if you have one initially to make it easier) to the slave.
+1. Ensure that the SBC is connected to the host PC (this should show up as a single device with both keyboard and mouse protocols). If you're using a Raspberry Pi 4 Model B or 5, use a USBC-USBA Adapter or USBC cable.
+2. Follow [First Installation](##-First-Installation)
+3. Connect a mouse or keyboard (spare if you have one initially to make it easier) to the SBC.
 4. Find where your mouse is in `/dev/input/` (it should be `/dev/input/mice/`). Skip this step if you didn't plug a mouse in.
 5. If you're using a keyboard, it will differ and should show up in `/dev/input/by-id/` named `...-event-kbd`. Skip this step if you didn't plug a keyboard in.
 6. Now, find your gadget device path. It should be `/dev/hidg0` if not, attempt to brute force `hidg0-..x`. This part is important and is required to function.
-7. Once you've found the paths, plug them into a project or the [example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs), build / run and viola! it should passthrough your inputs from the slave microcomputer to the master PC.
+7. Once you've found the paths, plug them into a project or the [example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin.rs), build / run and viola! it should pass through your inputs from the microcomputer to the host PC.
+
+## First Installation
+Run the following commands on your Raspberry Pi
+1. ``echo "dwc2" | sudo tee -a /etc/modules && echo "libcomposite" | sudo tee -a /etc/modules``, these enable OTG Host/Slave drivers & ConfigFS
+2. ``echo "dtoverlay=dwc2, dr_mode=peripheral" | /boot/firmware/config.txt``, make sure ``otg_mode=1`` is commented or removed it won't work otherwise.
+3. ``sudo wget -O /usr/bin/example_gadget https://raw.githubusercontent.com/StrateimTech/hid-api-rs/master/example_gadget.sh``
+4. ``sudo chmod +x /usr/bin/example_gadget``
+5. ``echo "/usr/bin/example_gadget" | sudo tee -a /etc/rc.local``
+6. Done, you'll most likely never have to do this again. /dev/hidg0... should auto generate on boot.
+7. Make sure to modify the example gadget to your liking.
+
+If one of these commands didn't work you can follow this external but still relevant [guide](https://www.isticktoit.net/?p=1383) by Tobi.
 
 ## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs) for a Pi4 Model b (Only model that supports USB OTG)
 ```
