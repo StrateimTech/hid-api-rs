@@ -6,9 +6,7 @@ Want access to keystrokes & mouse inputs without calling system-level APIs or ev
 This implementation is an improvement compared to the [C# version](https://github.com/StrateimTech/HID-API/) as multiple keyboards can function simultaneously.
 
 ## Setting Up
-If you're unfamiliar with the process of setting this up, follow these steps:
-
-1. Ensure that the SBC is connected to the host PC (this should show up as a single device with both keyboard and mouse protocols). If you're using a Raspberry Pi 4 Model B or 5, use a USBC-USBA Adapter or USBC cable.
+1. Ensure that the SBC is connected to the host PC through the OTG port. If you're using a Raspberry Pi 4 Model B or 5, use a USBC-USBA Adapter or USBC cable.
 2. Follow [First Installation](#first-installation)
 3. Connect a mouse or keyboard (spare if you have one initially to make it easier) to the SBC.
 4. Find where your mouse is in `/dev/input/` (it should be `/dev/input/mice/`). Skip this step if you didn't plug a mouse in.
@@ -23,8 +21,9 @@ Run the following commands on your Raspberry Pi
 3. ``sudo wget -O /usr/bin/example_gadget https://raw.githubusercontent.com/StrateimTech/hid-api-rs/master/example_gadget.sh``
 4. ``sudo chmod +x /usr/bin/example_gadget``
 5. ``echo "/usr/bin/example_gadget" | sudo tee -a /etc/rc.local``
-6. Done, you'll most likely never have to do this again. /dev/hidg0... should auto generate on boot.
-7. Make sure to modify the example gadget to your liking.
+6. Reboot or run ``sudo /usr/bin/example_gadget``
+7. Done, you'll most likely never have to do this again. /dev/hidg0... should auto generate on boot.
+8. (Optional) Modify the example gadget to your liking.
 
 If one of these commands didn't work you can follow this external but still relevant [guide](https://www.isticktoit.net/?p=1383) by Tobi.
 
