@@ -25,7 +25,7 @@ pub fn main() {
             }
         };
 
-        let gadget_writer = Mutex::new(BufWriter::new(gadget_file));
+        let mut gadget_writer = BufWriter::new(gadget_file);
 
         loop {
             unsafe {
@@ -39,11 +39,9 @@ pub fn main() {
                 ..Default::default()
             };
 
-            if let Ok(mut gadget_writer) = gadget_writer.lock() {
-                if let Err(error) = mouse::push_mouse_event(mouse_raw, None, &mut gadget_writer) {
-                    println!("Failed to push mouse event: {error}");
-                };
-            }
+            if let Err(error) = mouse::push_mouse_event(mouse_raw, None, &mut gadget_writer) {
+                println!("Failed to push mouse event: {error}");
+            };
 
             thread::sleep(Duration::from_millis(1000))
         }

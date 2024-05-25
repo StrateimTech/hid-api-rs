@@ -2,7 +2,6 @@ extern crate hid_api_rs;
 
 use std::{io, process, thread};
 use std::io::BufWriter;
-use std::sync::Mutex;
 use std::time::Duration;
 
 use hid_api_rs::{gadgets::{
@@ -34,11 +33,11 @@ pub fn main() {
             Ok(gadget_device) => gadget_device,
             Err(_) => {
                 println!("Failed to open gadget device");
-                return
+                return;
             }
         };
 
-        let gadget_writer = Mutex::new(BufWriter::new(gadget_file));
+        let mut gadget_writer = BufWriter::new(gadget_file);
 
         loop {
             unsafe {
@@ -77,11 +76,10 @@ pub fn main() {
                         ..Default::default()
                     };
 
-                    if let Ok(mut gadget_writer) = gadget_writer.lock() {
-                        if let Err(error) = mouse::push_mouse_event(mouse_raw, Some(mouse), &mut gadget_writer) {
-                            println!("Failed to push mouse event: {error}");
-                        };
-                    }
+                    if let Err(error) = mouse::push_mouse_event(mouse_raw, Some(mouse), &mut gadget_writer) {
+                        println!("Failed to push mouse event: {error}");
+                    };
+
                     continue;
                 }
             }
