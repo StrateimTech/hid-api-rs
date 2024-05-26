@@ -129,6 +129,8 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
                             });
                         }
                     }
+
+                    thread::sleep(Duration::from_millis(1));
                 }
             });
         }
