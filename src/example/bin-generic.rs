@@ -19,11 +19,9 @@ pub fn main() {
         gadget_output: String::from("/dev/hidg0"),
     };
 
-    thread::spawn(|| {
-        if let Err(err) = hid_api_rs::start_pass_through(specification) {
-            panic!("Failed to start pass through! {}", err)
-        };
-    });
+    if let Err(err) = hid_api_rs::start_pass_through(specification) {
+        panic!("Failed to start pass through! {}", err)
+    };
 
     static mut BREAK_LOCAL_THREAD: bool = false;
     thread::spawn(|| {
