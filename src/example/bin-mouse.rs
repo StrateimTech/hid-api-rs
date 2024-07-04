@@ -33,8 +33,7 @@ pub fn main() {
 
             let mouses = hid_api_rs::get_mouses();
 
-            for mouse_index in 0..mouses.len() {
-                let mouse = &mut mouses[mouse_index];
+            for mouse in mouses.iter_mut() {
                 let mouse_state = *mouse.get_state();
 
                 if mouse_state.middle_button {

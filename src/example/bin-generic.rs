@@ -1,6 +1,6 @@
 extern crate hid_api_rs;
 
-use std::{io, process, thread};
+use std::{env, io, process, thread};
 use std::io::BufWriter;
 use std::time::Duration;
 
@@ -10,6 +10,8 @@ use hid_api_rs::{gadgets::{
 }, hid, HidMouse, HidSpecification};
 
 pub fn main() {
+    env::set_var("RUST_BACKTRACE", "full");
+
     let specification: HidSpecification = HidSpecification {
         // TODO: /dev/input/mice will usually be the same for everyone. if not find your device by-id
         mouse_inputs: Some([HidMouse { mouse_path: String::from("/dev/input/mice"), mouse_poll_rate: Some(1000), mouse_side_buttons: true }].to_vec()),
@@ -55,9 +57,8 @@ pub fn main() {
 
             let mouses = hid_api_rs::get_mouses();
             // println!("Total mouses in circulation: {}", mouses.len());
-            for mouse_index in 0..mouses.len() {
-                let mouse = &mut mouses[mouse_index];
-                let mouse_state = mouse.get_state();
+            for mouse in mouses.iter_mut() {
+                let mouse_state = *mouse.get_state();
 
                 let left: bool = mouse_state.left_button;
                 let middle: bool = mouse_state.middle_button;
