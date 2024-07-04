@@ -1,4 +1,5 @@
 use std::io::{BufWriter, Error, ErrorKind};
+use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -36,6 +37,16 @@ static mut KEYBOARD_READING: bool = true;
 static mut GLOBAL_KEYBOARD_STATE: Lazy<KeyboardState> = Lazy::new(KeyboardState::default);
 
 pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> {
+    if !Path::exists(Path::new(&specification.gadget_output)) {
+        return Err(Error::new(
+            ErrorKind::Other,
+            String::from(match specification.gadget_output.is_empty() {
+                true => "HID Gadget output cannot be empty",
+                false => "HID Gadget output is not a valid path"
+            }),
+        ))
+    }
+
     unsafe {
         HID_SPEC = Some(specification.clone());
     }
