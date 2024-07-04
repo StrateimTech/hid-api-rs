@@ -43,6 +43,30 @@ _(``chmod +x hid_api_example``)_
 - ``hid_api_example``, Both keyboard & mouse example code, with state injection.
 - ``hid_api_example_mouse``, Mouse only, shows current state of mouse every 500 millis.
 - ``hid_api_example_injection``, Injection only no device pass through. It should move the mouse right 25px every second.
+```rust
+use hid_api_rs::{HidSpecification, HidMouse};
+
+pub fn main() {
+    hid_api_rs::start_pass_through(HidSpecification {
+        mouse_inputs: Some([HidMouse { mouse_path: String::from("/dev/input/mice"), mouse_poll_rate: Some(1000), mouse_side_buttons: true }].to_vec()),
+        keyboard_inputs: None,
+        gadget_output: String::from("/dev/hidg0")
+    }).unwrap();
+
+    loop {
+        let mouses = hid_api_rs::get_mouses();
+
+        for mouse in mouses.iter_mut() {
+            let mouse_state = *mouse.get_state();
+
+            println!("Left: {}, Right: {}, Middle: {}, Side-4: {}, Side-5: {}", mouse_state.left_button, mouse_state.right_button, mouse_state.middle_button, mouse_state.four_button, mouse_state.five_button);
+        }
+    }
+}
+```
+Mouse pass through with state interception.
+
+
 
 # Report descriptor for ConfigFs gadget
 ```
