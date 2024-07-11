@@ -507,7 +507,7 @@ const BUFFER_LENGTH: usize = 12;
 pub fn attempt_read(
     keyboard: &mut Keyboard,
     global_keyboard_state: &'static mut KeyboardState,
-    writer: &mut BufWriter<&mut File>
+    writer: &mut BufWriter<File>
 ) -> Result<(), Error> {
     let mut keyboard_buffer = [0u8; BUFFER_LENGTH];
 
@@ -584,7 +584,7 @@ pub fn attempt_read(
 
 pub fn attempt_flush(
     global_keyboard_state: &'static mut KeyboardState,
-    gadget_writer: &mut BufWriter<&mut File>,
+    gadget_writer: &mut BufWriter<File>,
 ) -> Result<(), Error> {
     hid::write_keyboard(global_keyboard_state, gadget_writer)
 }

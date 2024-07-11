@@ -1,9 +1,9 @@
-use std::ops::Deref;
 use std::{
     fs::{File, OpenOptions},
     io::{BufWriter, Write},
 };
-use std::io::{Error, ErrorKind};
+use std::io::Error;
+use std::ops::Deref;
 
 use bitvec::prelude::Lsb0;
 use bitvec::view::BitView;
@@ -11,30 +11,15 @@ use bitvec::view::BitView;
 use crate::gadgets::keyboard::KeyboardState;
 use crate::gadgets::mouse::MouseRaw;
 
-static mut GADGET_DEVICE_FILE: Option<File> = None;
-
-pub fn open_gadget_device(gadget_device_path: String) -> Result<&'static mut File, Error> {
-    unsafe {
-        GADGET_DEVICE_FILE = match OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(gadget_device_path)
-        {
-            Ok(result) => Some(result),
-            Err(error) => return Err(error),
-        };
-
-        match &mut GADGET_DEVICE_FILE {
-            Some(ref mut gadget) => Ok(gadget),
-            None => Err(Error::new(
-                ErrorKind::NotFound,
-                String::from("Hid gadget device file not found."),
-            ))
-        }
-    }
+pub fn open_gadget_device(gadget_device_path: String) -> Result<File, Error> {
+    OpenOptions::new()
+        .read(false)
+        .write(true)
+        .append(true)
+        .open(gadget_device_path)
 }
 
-pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
+pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<File>) -> Result<(), Error> {
     const ID: [u8; 1] = [1u8];
 
     let mut buttons = 0u8;
@@ -65,7 +50,7 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<&mut File>) -> 
 
 pub fn write_keyboard(
     keyboard_state: &KeyboardState,
-    gadget_writer: &mut BufWriter<&mut File>,
+    gadget_writer: &mut BufWriter<File>,
 ) -> Result<(), Error> {
     const ID: u8 = 2;
 

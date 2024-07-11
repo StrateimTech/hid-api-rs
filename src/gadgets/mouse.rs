@@ -66,7 +66,7 @@ pub struct MouseRaw {
     pub relative_wheel: i16,
 }
 
-pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
+pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<File>) -> Result<(), Error> {
     const BUFFER_LENGTH: usize = 4;
     let mut mouse_buffer = [0u8; BUFFER_LENGTH];
 
@@ -134,7 +134,7 @@ pub fn attempt_read(mouse: &mut Mouse, gadget_writer: &mut BufWriter<&mut File>)
     Ok(())
 }
 
-pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_writer: &mut BufWriter<&mut File>) -> Result<(), Error> {
+pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_writer: &mut BufWriter<File>) -> Result<(), Error> {
     if let Some(mouse) = mouse {
         let new_state = MouseState {
             left_button: raw_data.left_button,
