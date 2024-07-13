@@ -3,6 +3,7 @@ use std::io::{BufWriter, Error, ErrorKind, Read, Write};
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use once_cell::sync::Lazy;
 
@@ -11,6 +12,7 @@ use crate::{hid, HidMouse};
 pub struct Mouse {
     pub mouse_data_buffer: Vec<MouseRaw>,
     mouse_state: MouseState,
+    movement_state: (Sender<MouseMovement>, Receiver<MouseMovement>),
     mouse_device_file: File,
 
     pub mouse_settings: MouseSettings,
@@ -23,6 +25,10 @@ impl Mouse {
     pub fn get_state(&self) -> &MouseState {
         &self.mouse_state
     }
+
+    pub fn get_movement(&self) -> &Receiver<MouseMovement> {
+        &self.movement_state.1
+    }
 }
 
 #[derive(Copy, Clone, Default)]
@@ -32,6 +38,12 @@ pub struct MouseState {
     pub middle_button: bool,
     pub four_button: bool,
     pub five_button: bool,
+}
+
+pub struct MouseMovement {
+    pub relative_x: i16,
+    pub relative_y: i16,
+    pub relative_wheel: i16
 }
 
 pub struct MouseSettings {
@@ -144,6 +156,12 @@ pub fn push_mouse_event(raw_data: MouseRaw, mouse: Option<&mut Mouse>, gadget_wr
             five_button: raw_data.five_button,
         };
         mouse.mouse_state = new_state;
+        
+        _ = mouse.movement_state.0.send(MouseMovement {
+            relative_x: raw_data.relative_x,
+            relative_y: raw_data.relative_y,
+            relative_wheel: raw_data.relative_wheel
+        });
     }
 
     hid::write_mouse(&raw_data, gadget_writer)
@@ -170,6 +188,7 @@ pub fn check_mouses(mouse_inputs: &Vec<HidMouse>, mouse_interfaces: &'static mut
             let mut mouse_interface = Mouse {
                 mouse_data_buffer: Vec::new(),
                 mouse_state: MouseState::default(),
+                movement_state: channel(),
                 mouse_device_file: mouse,
                 mouse_settings: MouseSettings::default(),
                 mouse_path: mouse_input.mouse_path.clone(),

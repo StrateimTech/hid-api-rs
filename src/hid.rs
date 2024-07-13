@@ -1,7 +1,4 @@
-use std::{
-    fs::{File, OpenOptions},
-    io::{BufWriter, Write},
-};
+use std::{fs::{File, OpenOptions}, io::{BufWriter, Write}};
 use std::io::Error;
 use std::ops::Deref;
 
