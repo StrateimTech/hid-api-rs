@@ -38,12 +38,34 @@ pub fn main() {
 
                 if mouse_state.middle_button {
                     mouse.mouse_settings.invert_y = !mouse.mouse_settings.invert_y;
+                    println!("Inverted Y: {}", mouse.mouse_settings.invert_y);
                 }
 
                 println!("Left: {}, Right: {}, Middle: {}, Side-4: {}, Side-5: {}", mouse_state.left_button, mouse_state.right_button, mouse_state.middle_button, mouse_state.four_button, mouse_state.five_button);
             }
 
             thread::sleep(Duration::from_millis(500))
+        }
+    });
+
+    thread::spawn(|| loop {
+        unsafe {
+            if BREAK_LOCAL_THREAD {
+                return;
+            }
+        }
+
+        let mouses = hid_api_rs::get_mouses();
+
+        for mouse in mouses.iter() {
+            let movement_receiver = mouse.get_movement();
+
+            match movement_receiver.try_recv() {
+                Ok(movement) => {
+                    println!("X: {} | Y: {} | WHEEL: {}", movement.relative_x, movement.relative_y, movement.relative_wheel);
+                },
+                Err(_) => {}
+            };
         }
     });
 

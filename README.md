@@ -64,9 +64,7 @@ pub fn main() {
     }
 }
 ```
-Mouse pass through with state interception.
-
-
+Mouse pass through with state interception
 
 # Report descriptor for ConfigFs gadget
 ```
