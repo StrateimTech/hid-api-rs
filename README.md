@@ -42,7 +42,10 @@ _(``chmod +x hid_api_example``)_
 ## Examples
 - ``hid_api_example``, Both keyboard & mouse example code, with state injection.
 - ``hid_api_example_mouse``, Mouse only, shows current state of mouse every 500 millis.
+- ``hid_api_example_keyboard``, Keyboard only, prints ``hi`` when h is pressed.
 - ``hid_api_example_injection``, Injection only no device pass through. It should move the mouse right 25px every second.
+
+Mouse pass-through with state interception:
 ```rust
 use hid_api_rs::{HidSpecification, HidMouse};
 
@@ -64,7 +67,31 @@ pub fn main() {
     }
 }
 ```
-Mouse pass through with state interception
+
+Keyboard pass-through with state interception:
+```rust
+use hid_api_rs::{HidSpecification, gadgets::keyboard::UsbKeyCode};
+use std::{time::Duration, thread};
+
+pub fn main() {
+    hid_api_rs::start_pass_through(HidSpecification {
+        mouse_inputs: None,
+        // Use your own keyboard by-id here!
+        keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd")].to_vec()),
+        gadget_output: String::from("/dev/hidg0"),
+    }).unwrap();
+
+    loop {
+        let keyboard_state = hid_api_rs::get_keyboard();
+
+        if let Ok(keys_down) = &keyboard_state.keys_down.try_read() {
+            println!("Keys down: \n {:?}", keys_down.iter().map(|key| format!("{},", UsbKeyCode::from(*key as i16).to_string())).collect::<String>());
+        }
+
+        thread::sleep(Duration::from_millis(100))
+    }
+}
+```
 
 # Report descriptor for ConfigFs gadget
 ```
