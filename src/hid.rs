@@ -2,9 +2,6 @@ use std::{fs::{File, OpenOptions}, io::{BufWriter, Write}};
 use std::io::Error;
 use std::ops::Deref;
 
-use bitvec::prelude::Lsb0;
-use bitvec::view::BitView;
-
 use crate::gadgets::keyboard::KeyboardState;
 use crate::gadgets::mouse::MouseRaw;
 
@@ -17,15 +14,28 @@ pub fn open_gadget_device(gadget_device_path: String) -> Result<File, Error> {
 }
 
 pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<File>) -> Result<(), Error> {
-    const ID: [u8; 1] = [1u8];
+    const ID: u8 = 1u8;
 
     let mut buttons = 0u8;
-    let bits = buttons.view_bits_mut::<Lsb0>();
-    bits.set(0, raw.left_button);
-    bits.set(1, raw.right_button);
-    bits.set(2, raw.middle_button);
-    bits.set(3, raw.four_button);
-    bits.set(4, raw.five_button);
+    if raw.left_button {
+        buttons |= 1 << 0;
+    }
+
+    if raw.right_button {
+        buttons |= 1 << 1;
+    }
+
+    if raw.middle_button {
+        buttons |= 1 << 2;
+    }
+
+    if raw.four_button {
+        buttons |= 1 << 3;
+    }
+
+    if raw.five_button {
+        buttons |= 1 << 4;
+    }
 
     let x_bytes = u16_to_u8s(raw.relative_x as u16);
     let y_bytes = u16_to_u8s(raw.relative_y as u16);
@@ -49,7 +59,7 @@ pub fn write_keyboard(
     keyboard_state: &KeyboardState,
     gadget_writer: &mut BufWriter<File>,
 ) -> Result<(), Error> {
-    const ID: u8 = 2;
+    const ID: u8 = 2u8;
 
     let mut modifiers_down: Vec<i32> = Vec::new();
     if let Ok(modifiers_down_rwl) = keyboard_state.modifiers_down.read() {
@@ -57,9 +67,8 @@ pub fn write_keyboard(
     }
 
     let mut modifier = 0u8;
-    let bits = modifier.view_bits_mut::<Lsb0>();
-    for modifier in &modifiers_down {
-        bits.set(*modifier as usize, true);
+    for modifier_bit in &modifiers_down {
+        modifier |= 1 << *modifier_bit;
     }
 
     let mut keys_down: Vec<i32> = Vec::new();

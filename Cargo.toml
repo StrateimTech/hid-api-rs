@@ -13,7 +13,6 @@ categories = ["api-bindings", "hardware-support", "development-tools"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitvec = "1.0.1"
 once_cell = "1.18.0"
 
 num_enum = "0.7.2"
