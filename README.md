@@ -27,10 +27,15 @@ Run the following commands on your Raspberry Pi
 
 If one of these commands didn't work you can follow this external but still relevant [guide](https://www.isticktoit.net/?p=1383) by Tobi.
 
-## Building the [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs)
+## Building an [Example](https://github.com/StrateimTech/hid-api-rs/blob/master/src/example/bin-generic.rs)
 ```
 git clone https://github.com/StrateimTech/hid-api-rs
 cd ./hid-api-rs
+```
+Architectures
+- 64bit Armv8 - ``aarch64-unknown-linux-gnu``
+- 32bit Armv7 - ``armv7-unknown-linux-gnueabihf``
+```
 cargo build --bin hid_api_example --target armv7-unknown-linux-gnueabihf
 ```
 Once built transfer to pi using preferred method, before running make sure to use elevated permissions since its accessing /dev/ directory.
@@ -38,8 +43,9 @@ _(``chmod +x hid_api_example``)_
 
 ## Requirements
 - Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B or 5)
+- 64bit & 32bit are both supported internally
 
-## Examples
+## Full [Examples](https://github.com/StrateimTech/hid-api-rs/tree/master/src/example)
 - ``hid_api_example``, Both keyboard & mouse example code, with state injection.
 - ``hid_api_example_mouse``, Mouse only, shows current state of mouse every 500 millis.
 - ``hid_api_example_keyboard``, Keyboard only, prints ``hi`` when h is pressed.
