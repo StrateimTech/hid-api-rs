@@ -34,3 +34,7 @@ path = "src/example/bin-mouse.rs"
 [[bin]]
 name = "hid_api_example_injection"
 path = "src/example/bin-injection.rs"
+
+[[bin]]
+name = "hid_api_example_keyboard"
+path = "src/example/bin-keyboard.rs"
