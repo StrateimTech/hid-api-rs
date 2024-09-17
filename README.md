@@ -43,9 +43,8 @@ _(``chmod +x hid_api_example``)_
 
 ## Requirements
 - Microcomputer / spare computer that supports USB OTG (Raspberry Pi 4 Model B or 5)
-- 64bit & 32bit are both supported internally
 
-## Full [Examples](https://github.com/StrateimTech/hid-api-rs/tree/master/src/example)
+## [Examples](https://github.com/StrateimTech/hid-api-rs/tree/master/src/example)
 - ``hid_api_example``, Both keyboard & mouse example code, with state injection.
 - ``hid_api_example_mouse``, Mouse only, shows current state of mouse every 500 millis.
 - ``hid_api_example_keyboard``, Keyboard only, prints ``hi`` when h is pressed.
