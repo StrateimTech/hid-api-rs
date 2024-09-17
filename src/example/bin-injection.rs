@@ -1,7 +1,6 @@
 extern crate hid_api_rs;
 
 use std::{io, process, thread};
-use std::env;
 use std::io::BufWriter;
 use std::time::Duration;
 
@@ -10,8 +9,6 @@ use hid_api_rs::gadgets::mouse::MouseRaw;
 use hid_api_rs::hid;
 
 pub fn main() {
-    env::set_var("RUST_BACKTRACE", "full");
-
     static mut BREAK_LOCAL_THREAD: bool = false;
     thread::spawn(|| {
         // This can be either ``/dev/hidg0`` or ``/dev/hidg1``.

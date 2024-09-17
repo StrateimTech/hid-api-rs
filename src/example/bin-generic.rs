@@ -1,17 +1,15 @@
 extern crate hid_api_rs;
 
-use std::{env, io, process, thread};
+use std::{io, process, thread};
 use std::io::BufWriter;
 use std::time::Duration;
 
 use hid_api_rs::{gadgets::{
-    keyboard::{self, UsbKeyCode, KeyCodeModifier},
+    keyboard::{self, KeyCodeModifier, UsbKeyCode},
     mouse::{self, MouseRaw},
 }, hid, HidMouse, HidSpecification};
 
 pub fn main() {
-    env::set_var("RUST_BACKTRACE", "full");
-
     let specification: HidSpecification = HidSpecification {
         // TODO: /dev/input/mice will usually be the same for everyone. if not find your device by-id
         mouse_inputs: Some([HidMouse { mouse_path: String::from("/dev/input/mice"), mouse_poll_rate: Some(1000), mouse_side_buttons: true }].to_vec()),
