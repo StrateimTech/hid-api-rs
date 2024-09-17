@@ -17,10 +17,10 @@ This implementation is an improvement compared to the [C# version](https://githu
 ## First Installation
 Run the following commands on your Raspberry Pi
 1. ``echo "dwc2" | sudo tee -a /etc/modules && echo "libcomposite" | sudo tee -a /etc/modules``, these enable OTG Host/Slave drivers & ConfigFS
-2. ``echo "dtoverlay=dwc2, dr_mode=peripheral" | /boot/firmware/config.txt``, make sure ``otg_mode=1`` is commented out or removed entirely it won't work otherwise.
+2. ``echo "dtoverlay=dwc2, dr_mode=peripheral" | sudo tee -a /boot/firmware/config.txt`` or ``/boot/config.txt`` for 4b or older
 3. ``sudo wget -O /usr/bin/example_gadget https://raw.githubusercontent.com/StrateimTech/hid-api-rs/master/example_gadget.sh``
 4. ``sudo chmod +x /usr/bin/example_gadget``
-5. ``echo "/usr/bin/example_gadget" | sudo tee -a /etc/rc.local``
+5. ``sudo sed -i '19s/^/\n\/usr\/bin\/example_gadget\n/' /etc/rc.local`` "Adds /usr/bin/example_gadget to rc.local"
 6. Reboot or run ``sudo /usr/bin/example_gadget``
 7. Done, you'll most likely never have to do this again. /dev/hidg0... should auto generate on boot.
 8. (Optional) Modify the example gadget to your liking.
