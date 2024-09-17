@@ -41,13 +41,12 @@ pub fn write_mouse(raw: &MouseRaw, gadget_writer: &mut BufWriter<File>) -> Resul
     let y_bytes = u16_to_u8s(raw.relative_y as u16);
     let wheel_bytes = u16_to_u8s(raw.relative_wheel as u16);
 
-    let formatted_event = [
-        &ID[..],
-        &mut buttons.to_le_bytes(),
-        &[x_bytes[0]], &[x_bytes[1]],
-        &[y_bytes[0]], &[y_bytes[1]],
-        &[wheel_bytes[0]], &[wheel_bytes[1]]
-    ].concat();
+    let formatted_event: [u8; 8] = [
+        ID, buttons,
+        x_bytes[0], x_bytes[1],
+        y_bytes[0], y_bytes[1],
+        wheel_bytes[0], wheel_bytes[1]
+    ];
 
     gadget_writer.write(&formatted_event)?;
     gadget_writer.flush()?;
