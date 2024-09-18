@@ -10,8 +10,12 @@ use hid_api_rs::gadgets::keyboard::UsbKeyCode;
 pub fn main() {
     let specification: HidSpecification = HidSpecification {
         mouse_inputs: None,
-        // TODO: USER!, replace these path's to your own keyboard paths for functionality! These will always be different for each user (Different keyboards & hardware)
-        keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd")].to_vec()),
+        keyboard_inputs: Some(
+            vec![
+                // TODO: User!, replace these path's to your own keyboard's! They can be found in "/dev/input/by-id/usb-X-event-kbd"
+                String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd")
+            ]
+        ),
         gadget_output: String::from("/dev/hidg0"),
     };
     

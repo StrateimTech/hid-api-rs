@@ -7,11 +7,23 @@ use hid_api_rs::{HidMouse, HidSpecification};
 
 pub fn main() {
     let specification: HidSpecification = HidSpecification {
-        // TODO: /dev/input/mice will usually be the same for everyone. if not find your device by-id
-        mouse_inputs: Some([HidMouse { mouse_path: String::from("/dev/input/mice"), mouse_poll_rate: Some(1000), mouse_side_buttons: true }].to_vec()),
-        // TODO: USER!, replace these path's to your own keyboard paths for functionality! These will always be different for each user (Different keyboards & hardware)
-        keyboard_inputs: Some([String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd"), String::from("/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_0E6D395D3333-if01-event-kbd")].to_vec()),
-        // keyboard_inputs: None,
+        mouse_inputs: Some(
+            vec![
+                // TODO: "/dev/input/mice" will usually work for raspbian, however if not use "/dev/input/by-id/usb-X-event-mouse"
+                HidMouse {
+                    mouse_path: String::from("/dev/input/mice"),
+                    mouse_poll_rate: Some(1000),
+                    mouse_side_buttons: true,
+                }
+            ]
+        ),
+        keyboard_inputs: Some(
+            vec![
+                // TODO: User!, replace these path's to your own keyboard's! They can be found in "/dev/input/by-id/usb-X-event-kbd"
+                String::from("/dev/input/by-id/usb-Keychron_K4_Keychron_K4-event-kbd"),
+                String::from("/dev/input/by-id/usb-Logitech_G502_HERO_Gaming_Mouse_0E6D395D3333-if01-event-kbd")
+            ]
+        ),
         gadget_output: String::from("/dev/hidg0"),
     };
 
