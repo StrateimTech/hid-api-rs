@@ -69,12 +69,9 @@ pub fn main() {
         for mouse in mouses.iter() {
             let movement_receiver = mouse.get_movement();
 
-            match movement_receiver.try_recv() {
-                Ok(movement) => {
-                    println!("X: {} | Y: {} | WHEEL: {}", movement.relative_x, movement.relative_y, movement.relative_wheel);
-                },
-                Err(_) => {}
-            };
+            if let Ok(movement) = movement_receiver.try_recv() {
+                println!("X: {} | Y: {} | WHEEL: {}", movement.relative_x, movement.relative_y, movement.relative_wheel);
+            }
         }
     });
 
