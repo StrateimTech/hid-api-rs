@@ -77,7 +77,7 @@ pub fn start_pass_through(specification: HidSpecification) -> Result<(), Error> 
 
                             MOUSE_THREADS.push(mouse.mouse_path.clone());
 
-                            let mut mouse_writer = BufWriter::new(gadget_mouse);
+                            let mut mouse_writer = BufWriter::with_capacity(16, gadget_mouse);
                             thread::spawn(move || {
                                 loop {
                                     if !MOUSE_READING {
